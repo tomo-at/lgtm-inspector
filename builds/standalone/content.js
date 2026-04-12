@@ -1,0 +1,676 @@
+// Build configuration — BUILD_TARGET is replaced by build.sh
+// Values: 'lgtm' | 'standalone'
+const LGTM_CONFIG = {
+  BUILD_TARGET: 'standalone',
+  API_BASE: 'http://127.0.0.1:41234'
+};
+// Component path detection with priority hierarchy:
+// 1. data-component attribute  2. React Fiber  3. Vue  4. CSS classes  5. DOM
+const LGTMInspector = (() => {
+  'use strict';
+
+  // --- 1. data-component (primary) ---
+  function getDataComponentPath(element) {
+    const parts = [];
+    let current = element;
+    while (current && current !== document.documentElement) {
+      if (current.dataset && current.dataset.component) {
+        parts.unshift(current.dataset.component);
+      }
+      current = current.parentElement;
+    }
+    if (parts.length === 0) return null;
+
+    // If the deepest part already contains slashes (full path), use it directly
+    // Otherwise join ancestor parts with ' > '
+    const deepest = parts[parts.length - 1];
+    if (deepest.includes('/')) {
+      return { path: deepest.replace(/\//g, ' > '), accuracy: 'high' };
+    }
+    return { path: parts.join(' > '), accuracy: 'high' };
+  }
+
+  // --- 2. React Fiber ---
+  function getReactComponentPath(element) {
+    const fiberKey = Object.keys(element).find(
+      k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance')
+    );
+    if (!fiberKey) return null;
+
+    const names = [];
+    let fiber = element[fiberKey];
+    let depth = 0;
+    while (fiber && depth < 30) {
+      const type = fiber.type;
+      if (type && typeof type === 'function') {
+        const name = type.displayName || type.name;
+        if (name && !/^[a-z]/.test(name) && name !== 'Component' && !name.startsWith('_')) {
+          if (!names.includes(name)) names.unshift(name);
+        }
+      }
+      fiber = fiber.return;
+      depth++;
+      if (names.length >= 5) break;
+    }
+    if (names.length === 0) return null;
+    return { path: names.join(' > '), accuracy: 'medium' };
+  }
+
+  // --- 3. Vue ---
+  function getVueComponentPath(element) {
+    // Vue 3: __vueParentComponent on the element
+    // Vue 2: __vue__ on the element
+    const vueKey = Object.keys(element).find(
+      k => k === '__vue__' || k === '__vueParentComponent'
+    );
+    if (!vueKey) return null;
+
+    const names = [];
+    let vm = element[vueKey];
+    let depth = 0;
+    while (vm && depth < 10) {
+      // Vue 3 uses type.name, Vue 2 uses $options.name
+      const name = vm.type?.name || vm.$options?.name || vm.$options?.__name;
+      if (name && name !== 'App' && !name.startsWith('_')) {
+        names.unshift(name);
+      }
+      vm = vm.parent || vm.$parent;
+      depth++;
+      if (names.length >= 5) break;
+    }
+    if (names.length === 0) return null;
+    return { path: names.join(' > '), accuracy: 'medium' };
+  }
+
+  // --- 4. CSS classes ---
+  function getCSSClassPath(element) {
+    const ignore = /^(js-|is-|has-|active|disabled|hidden|show|fade|d-|text-|bg-|p-|m-|flex|grid|col-|row-)/i;
+    const classes = [...(element.classList || [])]
+      .filter(c => !ignore.test(c) && c.length > 1)
+      .slice(0, 2);
+    if (classes.length === 0) return null;
+    return { path: classes.join('.'), accuracy: 'low' };
+  }
+
+  // --- 5. DOM hierarchy (last resort) ---
+  function getDOMPath(element) {
+    const parts = [];
+    let current = element;
+    let depth = 0;
+    while (current && current !== document.body && depth < 4) {
+      const tag = current.tagName.toLowerCase();
+      const id = current.id ? `#${current.id}` : '';
+      parts.unshift(`${tag}${id}`);
+      current = current.parentElement;
+      depth++;
+    }
+    return { path: parts.join(' > ') || element.tagName.toLowerCase(), accuracy: 'low' };
+  }
+
+  function getComponentPath(element) {
+    return (
+      getDataComponentPath(element) ||
+      getReactComponentPath(element) ||
+      getVueComponentPath(element) ||
+      getCSSClassPath(element) ||
+      getDOMPath(element)
+    );
+  }
+
+  return { getComponentPath };
+})();
+// Hover highlight overlay and tooltip
+const LGTMOverlay = (() => {
+  'use strict';
+
+  let highlightEl = null;
+  let tooltipEl = null;
+
+  function ensureHighlight() {
+    if (highlightEl) return;
+    highlightEl = document.createElement('div');
+    highlightEl.id = '__lgtm_highlight__';
+    Object.assign(highlightEl.style, {
+      position: 'fixed',
+      pointerEvents: 'none',
+      zIndex: '2147483645',
+      border: '2px solid rgba(59,130,246,0.85)',
+      background: 'rgba(59,130,246,0.07)',
+      borderRadius: '2px',
+      boxSizing: 'border-box',
+      display: 'none',
+      transition: 'all 0.06s ease'
+    });
+    document.documentElement.appendChild(highlightEl);
+  }
+
+  function ensureTooltip() {
+    if (tooltipEl) return;
+    tooltipEl = document.createElement('div');
+    tooltipEl.id = '__lgtm_tooltip__';
+    Object.assign(tooltipEl.style, {
+      position: 'fixed',
+      pointerEvents: 'none',
+      zIndex: '2147483646',
+      background: 'rgba(15,23,42,0.93)',
+      color: '#fff',
+      font: '12px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+      padding: '4px 9px',
+      borderRadius: '5px',
+      whiteSpace: 'nowrap',
+      maxWidth: '340px',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      boxShadow: '0 2px 10px rgba(0,0,0,0.35)',
+      display: 'none'
+    });
+    document.documentElement.appendChild(tooltipEl);
+  }
+
+  function show(element, componentPath, mouseX, mouseY) {
+    ensureHighlight();
+    ensureTooltip();
+
+    const rect = element.getBoundingClientRect();
+    Object.assign(highlightEl.style, {
+      left: rect.left + 'px',
+      top: rect.top + 'px',
+      width: rect.width + 'px',
+      height: rect.height + 'px',
+      border: '2px solid rgba(59,130,246,0.85)',
+      background: 'rgba(59,130,246,0.07)',
+      display: 'block'
+    });
+
+    // Gray text for low-accuracy fallback paths
+    tooltipEl.style.color = componentPath.accuracy === 'low' ? '#94a3b8' : '#fff';
+    tooltipEl.textContent = '📍 ' + componentPath.path;
+    tooltipEl.style.display = 'block';
+
+    // Position tooltip near cursor, clamped to viewport
+    requestAnimationFrame(() => {
+      const tw = tooltipEl.offsetWidth || 200;
+      const th = tooltipEl.offsetHeight || 28;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let tx = mouseX + 14;
+      let ty = mouseY + 18;
+      if (tx + tw > vw - 8) tx = mouseX - tw - 6;
+      if (ty + th > vh - 8) ty = mouseY - th - 6;
+      tooltipEl.style.left = Math.max(4, tx) + 'px';
+      tooltipEl.style.top = Math.max(4, ty) + 'px';
+    });
+  }
+
+  function hide() {
+    if (highlightEl) highlightEl.style.display = 'none';
+    if (tooltipEl) tooltipEl.style.display = 'none';
+  }
+
+  function lock(element) {
+    ensureHighlight();
+    const rect = element.getBoundingClientRect();
+    Object.assign(highlightEl.style, {
+      left: rect.left + 'px',
+      top: rect.top + 'px',
+      width: rect.width + 'px',
+      height: rect.height + 'px',
+      border: '2px solid rgba(59,130,246,1)',
+      background: 'rgba(59,130,246,0.12)',
+      display: 'block'
+    });
+    if (tooltipEl) tooltipEl.style.display = 'none';
+  }
+
+  function unlock() {
+    if (highlightEl) {
+      highlightEl.style.border = '2px solid rgba(59,130,246,0.85)';
+      highlightEl.style.background = 'rgba(59,130,246,0.07)';
+    }
+  }
+
+  function destroy() {
+    if (highlightEl) { highlightEl.remove(); highlightEl = null; }
+    if (tooltipEl) { tooltipEl.remove(); tooltipEl = null; }
+  }
+
+  return { show, hide, lock, unlock, destroy };
+})();
+// Annotation card UI
+const LGTMCard = (() => {
+  'use strict';
+
+  let cardEl = null;
+  let onSubmitCb = null;
+  let onCancelCb = null;
+
+  const STYLES = `
+#__lgtm_card__{position:fixed;z-index:2147483647;width:320px;background:#fff;border:1px solid rgba(0,0,0,.13);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.18),0 2px 8px rgba(0,0,0,.1);padding:14px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;color:#1a1a1a;box-sizing:border-box}
+@media(prefers-color-scheme:dark){#__lgtm_card__{background:#1e293b;border-color:rgba(255,255,255,.12);color:#f1f5f9}#__lgtm_card__ .__lgi{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}#__lgtm_card__ .__lgp{background:rgba(255,255,255,.06);color:#94a3b8}#__lgtm_card__ .__lgs{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}}
+#__lgtm_card__ .__lgp{font-size:11px;color:#64748b;background:#f8fafc;padding:5px 8px;border-radius:5px;margin-bottom:10px;word-break:break-all;line-height:1.4}
+#__lgtm_card__ .__lgi{display:block;width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;min-height:72px;outline:none;line-height:1.5;transition:border-color .15s,box-shadow .15s}
+#__lgtm_card__ .__lgi:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+#__lgtm_card__ .__lgs{display:block;width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:6px 10px;font-size:13px;font-family:inherit;outline:none;margin-top:8px;cursor:pointer;background:#fff}
+#__lgtm_card__ .__lga{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+#__lgtm_card__ .__lgb{border:none;border-radius:6px;padding:6px 14px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:500;transition:opacity .15s}
+#__lgtm_card__ .__lgb:hover{opacity:.83}
+#__lgtm_card__ .__lgbc{background:transparent;color:#64748b;border:1px solid #e2e8f0}
+#__lgtm_card__ .__lgbs{background:#3b82f6;color:#fff}
+#__lgtm_card__ .__lgbs:disabled{opacity:.5;cursor:not-allowed}
+#__lgtm_card__ .__lgh{font-size:10px;color:#94a3b8;margin-top:4px;text-align:right}
+#__lgtm_card__ .__lgst{font-size:12px;text-align:center;padding:5px 8px;border-radius:5px;margin-top:8px;display:none}
+#__lgtm_card__ .__lgst-ok{color:#16a34a;background:#dcfce7}
+#__lgtm_card__ .__lgst-err{color:#dc2626;background:#fee2e2}
+  `;
+
+  function injectStyles() {
+    if (document.getElementById('__lgtm_style__')) return;
+    const s = document.createElement('style');
+    s.id = '__lgtm_style__';
+    s.textContent = STYLES;
+    document.documentElement.appendChild(s);
+  }
+
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function show(element, componentPath, { onSubmit, onCancel, projects }) {
+    injectStyles();
+    hide();
+
+    onSubmitCb = onSubmit;
+    onCancelCb = onCancel;
+
+    const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
+    const submitLabel = isLGTM ? 'Add to LGTM ▶' : 'Copy';
+
+    cardEl = document.createElement('div');
+    cardEl.id = '__lgtm_card__';
+    cardEl.innerHTML = `
+      <div class="__lgp">📍 ${esc(componentPath.path)}</div>
+      <textarea class="__lgi" placeholder="作業指示を入力..."></textarea>
+      ${isLGTM ? `<select class="__lgs" id="__lgtm_proj__">
+        <option value="">プロジェクトを選択...</option>
+      </select>` : ''}
+      <div class="__lgh">⌘↵ で送信 / Esc でキャンセル</div>
+      <div class="__lga">
+        <button class="__lgb __lgbc" id="__lgtm_cancel__">キャンセル</button>
+        <button class="__lgbs __lgb" id="__lgtm_submit__">${esc(submitLabel)}</button>
+      </div>
+      <div class="__lgst" id="__lgtm_status__"></div>
+    `;
+
+    positionCard(element);
+    document.documentElement.appendChild(cardEl);
+
+    // Populate projects for LGTM variant
+    if (isLGTM && projects && projects.length > 0) {
+      _populateProjects(projects);
+    }
+
+    const textarea = cardEl.querySelector('textarea');
+    const submitBtn = document.getElementById('__lgtm_submit__');
+    const cancelBtn = document.getElementById('__lgtm_cancel__');
+
+    requestAnimationFrame(() => textarea && textarea.focus());
+
+    textarea.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        submitBtn.click();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        _cancel();
+      } else {
+        e.stopPropagation();
+      }
+    });
+    textarea.addEventListener('keyup', e => e.stopPropagation());
+
+    submitBtn.addEventListener('click', () => {
+      const text = (textarea.value || '').trim();
+      if (!text) { textarea.focus(); return; }
+
+      const project = isLGTM
+        ? (document.getElementById('__lgtm_proj__') || {}).value || null
+        : null;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = '送信中...';
+      onSubmitCb && onSubmitCb({ text, project });
+    });
+
+    cancelBtn.addEventListener('click', _cancel);
+  }
+
+  function _populateProjects(projects) {
+    const sel = document.getElementById('__lgtm_proj__');
+    if (!sel) return;
+    projects.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.name || p;
+      opt.textContent = p.name || p;
+      sel.appendChild(opt);
+    });
+    // Restore last selection
+    chrome.storage.local.get('lastProject', data => {
+      if (data.lastProject) sel.value = data.lastProject;
+    });
+    sel.addEventListener('change', () => {
+      chrome.storage.local.set({ lastProject: sel.value });
+    });
+  }
+
+  function positionCard(element) {
+    if (!cardEl) return;
+    const rect = element.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const cardW = 332; // 320 + 12 margin
+    const cardH = 240;
+
+    let left = rect.right + 12;
+    let top = rect.top;
+
+    if (left + cardW > vw - 8) left = rect.left - cardW;
+    if (top + cardH > vh - 8) top = vh - cardH - 8;
+    left = Math.max(8, left);
+    top = Math.max(8, top);
+
+    cardEl.style.left = left + 'px';
+    cardEl.style.top = top + 'px';
+  }
+
+  function showStatus(message, type) {
+    const el = document.getElementById('__lgtm_status__');
+    if (!el) return;
+    el.textContent = message;
+    el.className = '__lgst __lgst-' + (type === 'success' ? 'ok' : 'err');
+    el.style.display = 'block';
+  }
+
+  function resetSubmit(label) {
+    const btn = document.getElementById('__lgtm_submit__');
+    if (!btn) return;
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+
+  function _cancel() {
+    hide();
+    onCancelCb && onCancelCb();
+  }
+
+  function hide() {
+    if (cardEl) { cardEl.remove(); cardEl = null; }
+    onSubmitCb = null;
+    onCancelCb = null;
+  }
+
+  return { show, hide, showStatus, resetSubmit };
+})();
+// Standalone variant adapter — copies formatted text to clipboard
+const LGTMAdapter = (() => {
+  'use strict';
+
+  // Projects not relevant for standalone
+  async function getProjects() {
+    return null;
+  }
+
+  async function submit({ text, componentPath, sourceURL, screenshotBase64 }) {
+    const lines = [
+      text,
+      '',
+      `Component: ${componentPath.path}`,
+      `URL: ${sourceURL || window.location.href}`
+    ];
+
+    const plainText = lines.join('\n');
+
+    // Attempt to write text + image together if screenshot is small enough
+    if (screenshotBase64 && screenshotBase64.length < 800000) {
+      try {
+        const blob = await fetch(`data:image/png;base64,${screenshotBase64}`).then(r => r.blob());
+        const textBlob = new Blob([plainText], { type: 'text/plain' });
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'text/plain': textBlob, 'image/png': blob })
+        ]);
+        return { success: true };
+      } catch (_) {
+        // Fall through to text-only
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(plainText);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: 'クリップボードへのアクセスが拒否されました' };
+    }
+  }
+
+  return { getProjects, submit };
+})();
+// Main content script entry point
+// Runs after: config.js → inspector.js → overlay.js → card.js → adapter.js (via build concatenation)
+(function () {
+  'use strict';
+
+  // Guard: run only once even if script is injected multiple times
+  if (window.__lgtmInspectorLoaded) return;
+  window.__lgtmInspectorLoaded = true;
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  let active = false;
+  let selectedEl = null;
+  let selectedPath = null;
+  let borderEl = null;
+
+  // ── Activation border (thin colored frame on viewport edge) ────────────────
+  function showBorder() {
+    if (borderEl) return;
+    borderEl = document.createElement('div');
+    borderEl.id = '__lgtm_border__';
+    Object.assign(borderEl.style, {
+      position: 'fixed', inset: '0',
+      border: '3px solid rgba(59,130,246,.6)',
+      pointerEvents: 'none',
+      zIndex: '2147483644',
+      boxSizing: 'border-box'
+    });
+    document.documentElement.appendChild(borderEl);
+  }
+
+  function hideBorder() {
+    if (borderEl) { borderEl.remove(); borderEl = null; }
+  }
+
+  // ── Activate / deactivate ──────────────────────────────────────────────────
+  function activate() {
+    if (active) return;
+    active = true;
+    document.documentElement.style.cursor = 'crosshair';
+    showBorder();
+    document.addEventListener('mousemove', onMouseMove, true);
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('keydown', onKeyDown, true);
+  }
+
+  function deactivate() {
+    if (!active) return;
+    active = false;
+    document.documentElement.style.cursor = '';
+    hideBorder();
+    LGTMOverlay.destroy();
+    LGTMCard.hide();
+    selectedEl = null;
+    selectedPath = null;
+    document.removeEventListener('mousemove', onMouseMove, true);
+    document.removeEventListener('click', onClick, true);
+    document.removeEventListener('keydown', onKeyDown, true);
+  }
+
+  function toggle() { active ? deactivate() : activate(); }
+
+  // ── Event handlers ──────────────────────────────────────────────────────────
+  function isOwnElement(el) {
+    return el && (
+      el.id && el.id.startsWith('__lgtm_') ||
+      (el.closest && el.closest('#__lgtm_card__'))
+    );
+  }
+
+  function onMouseMove(e) {
+    if (selectedEl) return; // locked after click
+    if (isOwnElement(e.target)) return;
+    const path = LGTMInspector.getComponentPath(e.target);
+    LGTMOverlay.show(e.target, path, e.clientX, e.clientY);
+  }
+
+  function onClick(e) {
+    if (isOwnElement(e.target)) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    selectedEl = e.target;
+    selectedPath = LGTMInspector.getComponentPath(e.target);
+    LGTMOverlay.lock(selectedEl);
+    openCard(selectedEl, selectedPath);
+  }
+
+  function onKeyDown(e) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (selectedEl) {
+        // Close card, go back to hover mode
+        LGTMCard.hide();
+        LGTMOverlay.unlock();
+        selectedEl = null;
+        selectedPath = null;
+      } else {
+        deactivate();
+      }
+    }
+  }
+
+  // ── Card ────────────────────────────────────────────────────────────────────
+  async function openCard(element, componentPath) {
+    let projects = null;
+    const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
+
+    if (isLGTM) {
+      // Fetch from API, fall back to cached list
+      projects = await LGTMAdapter.getProjects();
+      if (projects) {
+        chrome.storage.local.set({ cachedProjects: projects });
+      } else {
+        await new Promise(resolve => {
+          chrome.storage.local.get('cachedProjects', d => {
+            projects = d.cachedProjects || [];
+            resolve();
+          });
+        });
+      }
+    }
+
+    LGTMCard.show(element, componentPath, {
+      projects,
+      onSubmit: data => handleSubmit({ ...data, element, componentPath }),
+      onCancel: () => {
+        selectedEl = null;
+        selectedPath = null;
+        LGTMOverlay.unlock();
+      }
+    });
+  }
+
+  async function handleSubmit({ text, project, element, componentPath }) {
+    const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
+    const submitLabel = isLGTM ? 'Add to LGTM ▶' : 'Copy';
+
+    // Capture screenshot (non-fatal)
+    let screenshotBase64 = null;
+    try {
+      screenshotBase64 = await captureElement(element);
+    } catch (e) {
+      console.warn('[LGTM Inspector] Screenshot failed:', e.message);
+    }
+
+    const result = await LGTMAdapter.submit({
+      text,
+      componentPath,
+      sourceURL: window.location.href,
+      project,
+      screenshotBase64
+    });
+
+    if (result.success) {
+      LGTMCard.showStatus(isLGTM ? '✓ Added to LGTM' : '✓ Copied to clipboard', 'success');
+      setTimeout(() => { LGTMCard.hide(); deactivate(); }, 1400);
+    } else {
+      LGTMCard.showStatus('⚠ ' + (result.error || 'エラーが発生しました'), 'error');
+      LGTMCard.resetSubmit(submitLabel);
+    }
+  }
+
+  // ── Screenshot capture ──────────────────────────────────────────────────────
+  function captureElement(element) {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({ action: 'captureScreenshot' }, response => {
+        if (chrome.runtime.lastError) {
+          return reject(new Error(chrome.runtime.lastError.message));
+        }
+        if (!response || response.error) {
+          return reject(new Error(response?.error || 'capture failed'));
+        }
+        cropToElement(response.dataUrl, element).then(resolve).catch(reject);
+      });
+    });
+  }
+
+  function cropToElement(dataUrl, element) {
+    return new Promise((resolve, reject) => {
+      const rect = element.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        return reject(new Error('zero-size element'));
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        // Scale factor between screenshot pixels and CSS pixels
+        const scaleX = img.width / window.innerWidth;
+        const scaleY = img.height / window.innerHeight;
+
+        const sx = Math.round(rect.left * scaleX);
+        const sy = Math.round(rect.top * scaleY);
+        const sw = Math.round(rect.width * scaleX);
+        const sh = Math.round(rect.height * scaleY);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, sw);
+        canvas.height = Math.max(1, sh);
+        canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+        resolve(canvas.toDataURL('image/png').split(',')[1]);
+      };
+      img.onerror = () => reject(new Error('image load failed'));
+      img.src = dataUrl;
+    });
+  }
+
+  // ── Message listener (from background) ─────────────────────────────────────
+  chrome.runtime.onMessage.addListener(msg => {
+    if (msg.action === 'toggleInspector') toggle();
+  });
+
+})();
