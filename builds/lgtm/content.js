@@ -416,33 +416,31 @@ const LGTMCard = (() => {
 
   return { show, hide, showStatus, resetSubmit };
 })();
-// LGTM variant adapter — POSTs to local LGTM macOS app API
+// LGTM variant adapter — proxies API calls through background service worker
+// to avoid content script CORS / host_permissions issues in Arc and other browsers.
 const LGTMAdapter = (() => {
   'use strict';
 
-  const BASE = LGTM_CONFIG.API_BASE;
-  const TIMEOUT_MS = 4000;
-
-  function timeout(ms) {
-    return new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('timeout')), ms)
-    );
-  }
-
-  async function fetchWithTimeout(url, options) {
-    return Promise.race([fetch(url, options), timeout(TIMEOUT_MS)]);
+  function sendToBackground(message) {
+    return new Promise(resolve => {
+      chrome.runtime.sendMessage(message, response => {
+        if (chrome.runtime.lastError) {
+          console.warn('[LGTM Inspector] Background message error:', chrome.runtime.lastError.message);
+          resolve(null);
+          return;
+        }
+        resolve(response ?? null);
+      });
+    });
   }
 
   async function getProjects() {
-    try {
-      const resp = await fetchWithTimeout(`${BASE}/projects`, { method: 'GET' });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
-      return data.projects || [];
-    } catch (e) {
-      console.warn('[LGTM Inspector] Could not reach LGTM app:', e.message);
-      return null; // null = app not running
+    const response = await sendToBackground({ action: 'getProjects' });
+    if (!response || response.error) {
+      console.warn('[LGTM Inspector] Could not reach LGTM app:', response?.error ?? 'no response');
+      return null;
     }
+    return response.projects;
   }
 
   async function submit({ text, componentPath, sourceURL, project, screenshotBase64 }) {
@@ -458,23 +456,14 @@ const LGTMAdapter = (() => {
       screenshotBase64: screenshotBase64 || null
     };
 
-    try {
-      const resp = await fetchWithTimeout(`${BASE}/tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.error || `HTTP ${resp.status}`);
-      }
-      return { success: true };
-    } catch (e) {
-      const msg = e.message === 'timeout' || e.message.includes('fetch') || e.message.includes('Failed to fetch')
-        ? 'LGTM app is not running'
-        : e.message;
-      return { success: false, error: msg };
+    const response = await sendToBackground({ action: 'submitTask', payload });
+    if (!response) {
+      return { success: false, error: 'LGTM app is not running' };
     }
+    if (response.error) {
+      return { success: false, error: response.error };
+    }
+    return { success: true };
   }
 
   return { getProjects, submit };
