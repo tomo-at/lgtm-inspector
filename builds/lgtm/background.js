@@ -1,4 +1,4 @@
-// Service worker — icon state management + screenshot capture relay
+// Service worker — icon state management + programmatic content script injection
 'use strict';
 
 function isLocalhost(url) {
@@ -30,21 +30,25 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-// Action icon click → toggle inspector in active tab
-chrome.action.onClicked.addListener(tab => {
-  if (isLocalhost(tab.url)) {
-    chrome.tabs.sendMessage(tab.id, { action: 'toggleInspector' });
-  }
-});
-
-// Keyboard shortcut
-chrome.commands.onCommand.addListener((command, tab) => {
-  if (command === 'toggle-inspector' && tab && isLocalhost(tab.url)) {
-    chrome.tabs.sendMessage(tab.id, { action: 'toggleInspector' }, () => {
-      // Ignore "no receiver" errors (page may not have loaded content script yet)
-      void chrome.runtime.lastError;
+// Inject content script programmatically (if not already present), then toggle.
+// Uses the activeTab grant from action click / _execute_action shortcut.
+async function toggleInTab(tabId) {
+  try {
+    // Inject content.js; the guard inside (window.__lgtmInspectorLoaded) makes re-injection a no-op
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['content.js']
     });
+  } catch (e) {
+    console.warn('[LGTM] Failed to inject content script:', e.message);
+    return;
   }
+  chrome.tabs.sendMessage(tabId, { action: 'toggleInspector' }, () => void chrome.runtime.lastError);
+}
+
+// Action icon click (or _execute_action shortcut) → toggle inspector in active tab
+chrome.action.onClicked.addListener(tab => {
+  if (isLocalhost(tab.url)) toggleInTab(tab.id);
 });
 
 // Handle messages from content script
