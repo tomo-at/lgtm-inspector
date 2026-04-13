@@ -21,20 +21,6 @@
   "background": {
     "service_worker": "background.js"
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "http://localhost/*",
-        "http://localhost:*/*",
-        "http://127.0.0.1/*",
-        "http://127.0.0.1:*/*",
-        "http://[::1]/*",
-        "http://[::1]:*/*"
-      ],
-      "js": ["content.js"],
-      "run_at": "document_end"
-    }
-  ],
   "commands": {
     "_execute_action": {
       "suggested_key": {
