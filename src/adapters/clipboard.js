@@ -35,7 +35,7 @@ const LGTMAdapter = (() => {
       await navigator.clipboard.writeText(plainText);
       return { success: true };
     } catch (e) {
-      return { success: false, error: 'クリップボードへのアクセスが拒否されました' };
+      return { success: false, error: 'Clipboard access denied' };
     }
   }
 

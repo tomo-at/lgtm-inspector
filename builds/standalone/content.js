@@ -362,7 +362,7 @@ const LGTMCard = (() => {
     cardEl.id = '__lgtm_card__';
     cardEl.innerHTML = `
       <div class="__lgp">📍 ${esc(componentPath.path)}</div>
-      <textarea class="__lgi" placeholder="作業指示を入力..."></textarea>
+      <textarea class="__lgi" placeholder="${isLGTM ? '作業指示を入力...' : 'Enter notes...'}"></textarea>
       ${isLGTM ? `
         <div class="__lgdd" id="__lgtm_dd__">
           <input type="hidden" id="__lgtm_proj__" value="">
@@ -370,9 +370,9 @@ const LGTMCard = (() => {
           <ul class="__lgddlist" id="__lgtm_proj_list__" style="display:none"></ul>
         </div>
       ` : ''}
-      <div class="__lgh">⌘↵ で送信 / Esc でキャンセル</div>
+      <div class="__lgh">${isLGTM ? '⌘↵ で送信 / Esc でキャンセル' : '⌘↵ to Copy / Esc to Cancel'}</div>
       <div class="__lga">
-        <button class="__lgb __lgbc" id="__lgtm_cancel__">キャンセル</button>
+        <button class="__lgb __lgbc" id="__lgtm_cancel__">${isLGTM ? 'キャンセル' : 'Cancel'}</button>
         <button class="__lgbs __lgb" id="__lgtm_submit__">${esc(submitLabel)}</button>
       </div>
       <div class="__lgst" id="__lgtm_status__"></div>
@@ -421,7 +421,7 @@ const LGTMCard = (() => {
         : null;
 
       submitBtn.disabled = true;
-      submitBtn.textContent = '送信中...';
+      submitBtn.textContent = isLGTM ? '送信中...' : 'Copying...';
       onSubmitCb && onSubmitCb({ text, project });
     });
 
@@ -564,7 +564,7 @@ const LGTMAdapter = (() => {
       await navigator.clipboard.writeText(plainText);
       return { success: true };
     } catch (e) {
-      return { success: false, error: 'クリップボードへのアクセスが拒否されました' };
+      return { success: false, error: 'Clipboard access denied' };
     }
   }
 
@@ -741,7 +741,7 @@ const LGTMAdapter = (() => {
       LGTMCard.showStatus(isLGTM ? '✓ Added to LGTM' : '✓ Copied to clipboard', 'success');
       setTimeout(() => { LGTMCard.hide(); deactivate(); }, 1400);
     } else {
-      LGTMCard.showStatus('⚠ ' + (result.error || 'エラーが発生しました'), 'error');
+      LGTMCard.showStatus('⚠ ' + (result.error || (isLGTM ? 'エラーが発生しました' : 'An error occurred')), 'error');
       LGTMCard.resetSubmit(submitLabel);
     }
   }

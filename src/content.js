@@ -169,7 +169,7 @@
       LGTMCard.showStatus(isLGTM ? '✓ Added to LGTM' : '✓ Copied to clipboard', 'success');
       setTimeout(() => { LGTMCard.hide(); deactivate(); }, 1400);
     } else {
-      LGTMCard.showStatus('⚠ ' + (result.error || 'エラーが発生しました'), 'error');
+      LGTMCard.showStatus('⚠ ' + (result.error || (isLGTM ? 'エラーが発生しました' : 'An error occurred')), 'error');
       LGTMCard.resetSubmit(submitLabel);
     }
   }

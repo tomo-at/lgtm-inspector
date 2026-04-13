@@ -45,9 +45,13 @@ build_variant() {
   } > "$out/content.js"
 
   # Copy remaining files
-  cp src/background.js "$out/background.js"
-  cp manifest.json     "$out/manifest.json"
-  cp -r icons/         "$out/icons/"
+  sed "s/__BUILD_TARGET__/$target/g" src/background.js > "$out/background.js"
+
+  local manifest="manifest.json"
+  [ -f "src/manifest.${target}.json" ] && manifest="src/manifest.${target}.json"
+  cp "$manifest" "$out/manifest.json"
+
+  cp -r icons/ "$out/icons/"
 
   echo "  ✓ $out/content.js   ($(wc -c < "$out/content.js") bytes)"
   echo "  ✓ Done"

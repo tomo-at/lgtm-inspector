@@ -1,6 +1,8 @@
 // Service worker — icon state management + programmatic content script injection
 'use strict';
 
+const BUILD_TARGET = 'standalone';
+
 function isLocalhost(url) {
   if (!url) return false;
   try {
@@ -10,10 +12,10 @@ function isLocalhost(url) {
 }
 
 function updateAction(tabId, url) {
-  if (isLocalhost(url)) {
-    chrome.action.enable(tabId);
-  } else {
+  if (BUILD_TARGET === 'lgtm' && !isLocalhost(url)) {
     chrome.action.disable(tabId);
+  } else {
+    chrome.action.enable(tabId);
   }
 }
 
@@ -48,7 +50,8 @@ async function toggleInTab(tabId) {
 
 // Action icon click (or _execute_action shortcut) → toggle inspector in active tab
 chrome.action.onClicked.addListener(tab => {
-  if (isLocalhost(tab.url)) toggleInTab(tab.id);
+  if (BUILD_TARGET === 'lgtm' && !isLocalhost(tab.url)) return;
+  toggleInTab(tab.id);
 });
 
 const LGTM_API = 'http://127.0.0.1:41234';
