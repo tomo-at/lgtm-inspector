@@ -755,12 +755,15 @@ const LGTMAdapter = (() => {
         if (!response || response.error) {
           return reject(new Error(response?.error || 'capture failed'));
         }
-        cropToElement(response.dataUrl, element).then(resolve).catch(reject);
+        annotateScreenshot(response.dataUrl, element).then(resolve).catch(reject);
       });
     });
   }
 
-  function cropToElement(dataUrl, element) {
+  // Full-viewport screenshot with the selected element highlighted in red.
+  // Gives Claude Code the full UI context to understand where the element is,
+  // instead of a tiny cropped image that loses all surrounding context.
+  function annotateScreenshot(dataUrl, element) {
     return new Promise((resolve, reject) => {
       const rect = element.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) {
@@ -769,19 +772,38 @@ const LGTMAdapter = (() => {
 
       const img = new Image();
       img.onload = () => {
-        // Scale factor between screenshot pixels and CSS pixels
+        // Scale between screenshot pixels and CSS pixels (handles HiDPI)
         const scaleX = img.width / window.innerWidth;
         const scaleY = img.height / window.innerHeight;
 
-        const sx = Math.round(rect.left * scaleX);
-        const sy = Math.round(rect.top * scaleY);
-        const sw = Math.round(rect.width * scaleX);
-        const sh = Math.round(rect.height * scaleY);
+        // Scale output down to max 1280px wide to keep file size manageable
+        const outputScale = Math.min(1, 1280 / img.width);
+        const canvasW = Math.round(img.width * outputScale);
+        const canvasH = Math.round(img.height * outputScale);
 
         const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, sw);
-        canvas.height = Math.max(1, sh);
-        canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+        canvas.width = canvasW;
+        canvas.height = canvasH;
+        const ctx = canvas.getContext('2d');
+
+        // Draw full viewport
+        ctx.drawImage(img, 0, 0, canvasW, canvasH);
+
+        // Element bounds in canvas coordinates
+        const ex = Math.round(rect.left * scaleX * outputScale);
+        const ey = Math.round(rect.top  * scaleY * outputScale);
+        const ew = Math.max(1, Math.round(rect.width  * scaleX * outputScale));
+        const eh = Math.max(1, Math.round(rect.height * scaleY * outputScale));
+
+        // Semi-transparent red fill
+        ctx.fillStyle = 'rgba(239,68,68,0.25)';
+        ctx.fillRect(ex, ey, ew, eh);
+
+        // Solid red border
+        ctx.strokeStyle = 'rgb(239,68,68)';
+        ctx.lineWidth = Math.max(2, Math.round(3 * outputScale));
+        ctx.strokeRect(ex - 1, ey - 1, ew + 2, eh + 2);
+
         resolve(canvas.toDataURL('image/png').split(',')[1]);
       };
       img.onerror = () => reject(new Error('image load failed'));
