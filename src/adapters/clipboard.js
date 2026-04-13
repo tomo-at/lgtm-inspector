@@ -8,12 +8,12 @@ const LGTMAdapter = (() => {
   }
 
   async function submit({ text, componentPath, sourceURL, screenshotBase64 }) {
-    const lines = [
-      text,
-      '',
-      `Component: ${componentPath.path}`,
-      `URL: ${sourceURL || window.location.href}`
-    ];
+    const lines = [text, ''];
+    // Exclude DOM-hierarchy fallbacks (accuracy: 'low')
+    if (componentPath.accuracy !== 'low') {
+      lines.push(`Component: ${componentPath.path}`);
+    }
+    lines.push(`URL: ${sourceURL || window.location.href}`);
 
     const plainText = lines.join('\n');
 

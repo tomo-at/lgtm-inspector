@@ -32,7 +32,8 @@ const LGTMAdapter = (() => {
 
     const payload = {
       title: text,
-      componentPath: componentPath.path,
+      // Exclude DOM-hierarchy fallbacks (accuracy: 'low') — they're not useful for code navigation
+      componentPath: componentPath.accuracy !== 'low' ? componentPath.path : '',
       projectName: project,
       sourceURL: sourceURL || '',
       screenshotBase64: screenshotBase64 || null
