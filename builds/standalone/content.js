@@ -246,15 +246,6 @@ const LGTMCard = (() => {
 
   const STYLES = `
 #__lgtm_card__{position:fixed;z-index:2147483647;width:320px;background:#fff;border:1px solid rgba(0,0,0,.13);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.18),0 2px 8px rgba(0,0,0,.1);padding:14px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;color:#1a1a1a;box-sizing:border-box}
-@media(prefers-color-scheme:dark){
-  #__lgtm_card__{background:#1e293b;border-color:rgba(255,255,255,.12);color:#f1f5f9}
-  #__lgtm_card__ .__lgi{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}
-  #__lgtm_card__ .__lgp{background:rgba(255,255,255,.06);color:#94a3b8}
-  #__lgtm_card__ .__lgddbtn{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}
-  #__lgtm_card__ .__lgddlist{background:#1e293b;border-color:rgba(255,255,255,.18)}
-  #__lgtm_card__ .__lgdditem{color:#f1f5f9}
-  #__lgtm_card__ .__lgdditem:hover{background:#334155}
-}
 #__lgtm_card__ .__lgp{font-size:11px;color:#64748b;background:#f8fafc;padding:5px 8px;border-radius:5px;margin-bottom:10px;word-break:break-all;line-height:1.4}
 #__lgtm_card__ .__lgi{display:block;width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;min-height:72px;outline:none;line-height:1.5;transition:border-color .15s,box-shadow .15s}
 #__lgtm_card__ .__lgi:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.12)}
@@ -274,6 +265,7 @@ const LGTMCard = (() => {
 #__lgtm_card__ .__lgst{font-size:12px;text-align:center;padding:5px 8px;border-radius:5px;margin-top:8px;display:none}
 #__lgtm_card__ .__lgst-ok{color:#16a34a;background:#dcfce7}
 #__lgtm_card__ .__lgst-err{color:#dc2626;background:#fee2e2}
+@media(prefers-color-scheme:dark){#__lgtm_card__{background:#1e293b;border-color:rgba(255,255,255,.12);color:#f1f5f9}#__lgtm_card__ .__lgp{background:rgba(255,255,255,.06);color:#94a3b8}#__lgtm_card__ .__lgi{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}#__lgtm_card__ .__lgddbtn{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}#__lgtm_card__ .__lgddlist{background:#1e293b;border-color:rgba(255,255,255,.18)}#__lgtm_card__ .__lgdditem{color:#f1f5f9}#__lgtm_card__ .__lgdditem:hover{background:#334155}}
   `;
 
   function injectStyles() {
