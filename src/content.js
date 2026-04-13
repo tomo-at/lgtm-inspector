@@ -12,6 +12,7 @@
   let selectedEl = null;
   let selectedPath = null;
   let borderEl = null;
+  let pendingScreenshot = null; // captured on click, before card UI appears
 
   // ── Activation border (thin colored frame on viewport edge) ────────────────
   function showBorder() {
@@ -84,6 +85,13 @@
     selectedEl = e.target;
     selectedPath = LGTMInspector.getComponentPath(e.target);
     LGTMOverlay.lock(selectedEl);
+
+    // Capture screenshot NOW — before the card UI appears in the viewport
+    pendingScreenshot = null;
+    captureElement(selectedEl)
+      .then(b64 => { pendingScreenshot = b64; })
+      .catch(() => { pendingScreenshot = null; });
+
     openCard(selectedEl, selectedPath);
   }
 
@@ -138,12 +146,15 @@
     const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
     const submitLabel = isLGTM ? 'Add to LGTM ▶' : 'Copy';
 
-    // Capture screenshot (non-fatal)
-    let screenshotBase64 = null;
-    try {
-      screenshotBase64 = await captureElement(element);
-    } catch (e) {
-      console.warn('[LGTM Inspector] Screenshot failed:', e.message);
+    // Use screenshot captured on click (before card appeared); fall back to live capture
+    let screenshotBase64 = pendingScreenshot;
+    pendingScreenshot = null;
+    if (!screenshotBase64) {
+      try {
+        screenshotBase64 = await captureElement(element);
+      } catch (e) {
+        console.warn('[LGTM Inspector] Screenshot failed:', e.message);
+      }
     }
 
     const result = await LGTMAdapter.submit({
@@ -194,10 +205,10 @@
         const scaleX = img.width / window.innerWidth;
         const scaleY = img.height / window.innerHeight;
 
-        // Scale output down to max 1280px wide to keep file size manageable
-        const outputScale = Math.min(1, 1280 / img.width);
-        const canvasW = Math.round(img.width * outputScale);
-        const canvasH = Math.round(img.height * outputScale);
+        // Use native screenshot resolution (HiDPI/Retina already captured at 2x)
+        const outputScale = 1;
+        const canvasW = img.width;
+        const canvasH = img.height;
 
         const canvas = document.createElement('canvas');
         canvas.width = canvasW;
