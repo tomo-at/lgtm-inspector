@@ -1,3 +1,7 @@
+(function(){
+if(window.__lgtmContentLoaded)return;
+window.__lgtmContentLoaded=true;
+
 // Build configuration — BUILD_TARGET is replaced by build.sh
 // Values: 'lgtm' | 'standalone'
 const LGTM_CONFIG = {
@@ -728,5 +732,7 @@ const LGTMAdapter = (() => {
   chrome.runtime.onMessage.addListener(msg => {
     if (msg.action === 'toggleInspector') toggle();
   });
+
+})();
 
 })();

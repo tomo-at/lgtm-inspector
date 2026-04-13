@@ -31,13 +31,17 @@ build_variant() {
   fi
 
   # Concatenate content script: config (with BUILD_TARGET injected) + core modules + adapter + main
+  # Wrapped in a guard IIFE so that re-injection (executeScript called multiple times) is a no-op:
+  # the outer IIFE returns early when __lgtmContentLoaded is already set, preventing "already declared" errors.
   {
+    printf '(function(){\nif(window.__lgtmContentLoaded)return;\nwindow.__lgtmContentLoaded=true;\n\n'
     sed "s/__BUILD_TARGET__/$target/g" src/config.js
     cat src/core/inspector.js
     cat src/core/overlay.js
     cat src/core/card.js
     cat "$adapter"
     cat src/content.js
+    printf '\n})();\n'
   } > "$out/content.js"
 
   # Copy remaining files
