@@ -8,11 +8,24 @@ const LGTMCard = (() => {
 
   const STYLES = `
 #__lgtm_card__{position:fixed;z-index:2147483647;width:320px;background:#fff;border:1px solid rgba(0,0,0,.13);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.18),0 2px 8px rgba(0,0,0,.1);padding:14px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;color:#1a1a1a;box-sizing:border-box}
-@media(prefers-color-scheme:dark){#__lgtm_card__{background:#1e293b;border-color:rgba(255,255,255,.12);color:#f1f5f9}#__lgtm_card__ .__lgi{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}#__lgtm_card__ .__lgp{background:rgba(255,255,255,.06);color:#94a3b8}#__lgtm_card__ .__lgs{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}}
+@media(prefers-color-scheme:dark){
+  #__lgtm_card__{background:#1e293b;border-color:rgba(255,255,255,.12);color:#f1f5f9}
+  #__lgtm_card__ .__lgi{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}
+  #__lgtm_card__ .__lgp{background:rgba(255,255,255,.06);color:#94a3b8}
+  #__lgtm_card__ .__lgddbtn{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}
+  #__lgtm_card__ .__lgddlist{background:#1e293b;border-color:rgba(255,255,255,.18)}
+  #__lgtm_card__ .__lgdditem{color:#f1f5f9}
+  #__lgtm_card__ .__lgdditem:hover{background:#334155}
+}
 #__lgtm_card__ .__lgp{font-size:11px;color:#64748b;background:#f8fafc;padding:5px 8px;border-radius:5px;margin-bottom:10px;word-break:break-all;line-height:1.4}
 #__lgtm_card__ .__lgi{display:block;width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;min-height:72px;outline:none;line-height:1.5;transition:border-color .15s,box-shadow .15s}
 #__lgtm_card__ .__lgi:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.12)}
-#__lgtm_card__ .__lgs{display:block;width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:6px 10px;font-size:13px;font-family:inherit;outline:none;margin-top:8px;cursor:pointer;background:#fff}
+#__lgtm_card__ .__lgdd{position:relative;margin-top:8px}
+#__lgtm_card__ .__lgddbtn{display:block;width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:6px 10px;font-size:13px;font-family:inherit;outline:none;cursor:pointer;background:#fff;color:#1a1a1a;text-align:left;line-height:1.5;transition:border-color .15s}
+#__lgtm_card__ .__lgddbtn:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+#__lgtm_card__ .__lgddlist{position:absolute;top:calc(100% + 3px);left:0;right:0;margin:0;padding:4px 0;background:#fff;border:1px solid #cbd5e1;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.12);list-style:none;z-index:2147483648;max-height:160px;overflow-y:auto}
+#__lgtm_card__ .__lgdditem{padding:6px 10px;cursor:pointer;font-size:13px;color:#1a1a1a;user-select:none}
+#__lgtm_card__ .__lgdditem:hover{background:#f1f5f9}
 #__lgtm_card__ .__lga{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
 #__lgtm_card__ .__lgb{border:none;border-radius:6px;padding:6px 14px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:500;transition:opacity .15s}
 #__lgtm_card__ .__lgb:hover{opacity:.83}
@@ -56,9 +69,13 @@ const LGTMCard = (() => {
     cardEl.innerHTML = `
       <div class="__lgp">📍 ${esc(componentPath.path)}</div>
       <textarea class="__lgi" placeholder="作業指示を入力..."></textarea>
-      ${isLGTM ? `<select class="__lgs" id="__lgtm_proj__">
-        <option value="">プロジェクトを選択...</option>
-      </select>` : ''}
+      ${isLGTM ? `
+        <div class="__lgdd" id="__lgtm_dd__">
+          <input type="hidden" id="__lgtm_proj__" value="">
+          <button type="button" class="__lgddbtn" id="__lgtm_proj_btn__">プロジェクトを選択...</button>
+          <ul class="__lgddlist" id="__lgtm_proj_list__" style="display:none"></ul>
+        </div>
+      ` : ''}
       <div class="__lgh">⌘↵ で送信 / Esc でキャンセル</div>
       <div class="__lga">
         <button class="__lgb __lgbc" id="__lgtm_cancel__">キャンセル</button>
@@ -70,7 +87,6 @@ const LGTMCard = (() => {
     positionCard(element);
     document.documentElement.appendChild(cardEl);
 
-    // Populate projects for LGTM variant
     if (isLGTM && projects && projects.length > 0) {
       _populateProjects(projects);
     }
@@ -89,7 +105,13 @@ const LGTMCard = (() => {
       } else if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        _cancel();
+        // Escape: close dropdown if open, otherwise cancel card
+        const list = document.getElementById('__lgtm_proj_list__');
+        if (list && list.style.display !== 'none') {
+          list.style.display = 'none';
+        } else {
+          _cancel();
+        }
       } else {
         e.stopPropagation();
       }
@@ -113,21 +135,53 @@ const LGTMCard = (() => {
   }
 
   function _populateProjects(projects) {
-    const sel = document.getElementById('__lgtm_proj__');
-    if (!sel) return;
+    const input = document.getElementById('__lgtm_proj__');
+    const btn   = document.getElementById('__lgtm_proj_btn__');
+    const list  = document.getElementById('__lgtm_proj_list__');
+    if (!input || !btn || !list) return;
+
     projects.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.name || p;
-      opt.textContent = p.name || p;
-      sel.appendChild(opt);
+      const name = p.name || p;
+      const li = document.createElement('li');
+      li.className = '__lgdditem';
+      li.textContent = name;
+      li.addEventListener('click', e => {
+        e.stopPropagation();
+        input.value = name;
+        btn.textContent = name;
+        list.style.display = 'none';
+        chrome.storage.local.set({ lastProject: name });
+      });
+      list.appendChild(li);
     });
-    // Restore last selection
+
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      list.style.display = list.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // Close when clicking outside the dropdown
+    document.addEventListener('click', _closeDropdown, true);
+
+    // Restore last-used project
     chrome.storage.local.get('lastProject', data => {
-      if (data.lastProject) sel.value = data.lastProject;
+      if (!data.lastProject) return;
+      const match = [...list.querySelectorAll('.__lgdditem')]
+        .find(li => li.textContent === data.lastProject);
+      if (match) {
+        input.value = data.lastProject;
+        btn.textContent = data.lastProject;
+      }
     });
-    sel.addEventListener('change', () => {
-      chrome.storage.local.set({ lastProject: sel.value });
-    });
+  }
+
+  function _closeDropdown(e) {
+    const list = document.getElementById('__lgtm_proj_list__');
+    const btn  = document.getElementById('__lgtm_proj_btn__');
+    if (!list || !btn) return;
+    if (!btn.contains(e.target) && !list.contains(e.target)) {
+      list.style.display = 'none';
+    }
   }
 
   function positionCard(element) {
@@ -171,6 +225,7 @@ const LGTMCard = (() => {
   }
 
   function hide() {
+    document.removeEventListener('click', _closeDropdown, true);
     if (cardEl) { cardEl.remove(); cardEl = null; }
     onSubmitCb = null;
     onCancelCb = null;
