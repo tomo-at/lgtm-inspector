@@ -329,11 +329,19 @@
   // Capture full viewport and crop to the dragged rect (2px inset to exclude the selection border).
   function captureRegion(rect) {
     return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage({ action: 'captureScreenshot' }, response => {
-        if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-        if (!response || response.error) return reject(new Error(response?.error || 'capture failed'));
-        cropScreenshot(response.dataUrl, rect).then(resolve).catch(reject);
-      });
+      // Hide all LGTM overlays so the selection highlight doesn't tint the screenshot.
+      // Double rAF ensures the visibility change is painted before captureVisibleTab fires.
+      const lgtmEls = [...document.querySelectorAll('[id^="__lgtm_"]')];
+      lgtmEls.forEach(el => { el.style.visibility = 'hidden'; });
+
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        chrome.runtime.sendMessage({ action: 'captureScreenshot' }, response => {
+          lgtmEls.forEach(el => { el.style.visibility = ''; });
+          if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+          if (!response || response.error) return reject(new Error(response?.error || 'capture failed'));
+          cropScreenshot(response.dataUrl, rect).then(resolve).catch(reject);
+        });
+      }));
     });
   }
 
