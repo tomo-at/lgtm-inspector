@@ -83,7 +83,8 @@
   function onMouseDown(e) {
     if (isOwnElement(e.target)) return;
     if (e.button !== 0) return;
-    e.preventDefault(); // prevent text selection during drag
+    e.preventDefault();      // prevent text selection during drag
+    e.stopPropagation();     // prevent page from seeing mousedown (closes menus/dropdowns)
     dragStart = { x: e.clientX, y: e.clientY };
     isDragging = false;
   }
@@ -100,6 +101,7 @@
         LGTMOverlay.hide(); // hide component highlight while drawing rect
       }
       if (isDragging) {
+        e.stopPropagation(); // prevent page hover/drag handlers during screenshot selection
         LGTMOverlay.showDragRect(dragStart.x, dragStart.y, e.clientX, e.clientY);
         return;
       }
