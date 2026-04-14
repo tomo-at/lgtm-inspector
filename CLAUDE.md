@@ -66,6 +66,11 @@ const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
 
 `card.js` と `content.js` で `isLGTM` を使って分岐している。
 
+## Git 運用ルール
+
+- **「コミットして」という指示にはプッシュまで含む。** コミット後は自動的に `git push` する。
+- `builds/` は `.gitignore` 対象。`git add` の対象に含めない。
+
 ## Chrome拡張機能のロード
 
 ```
