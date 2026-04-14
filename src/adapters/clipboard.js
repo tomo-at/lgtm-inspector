@@ -1,4 +1,4 @@
-// Standalone variant adapter — copies formatted text to clipboard
+// Standalone variant adapter — saves screenshot to disk, copies text + path to clipboard
 const LGTMAdapter = (() => {
   'use strict';
 
@@ -15,21 +15,19 @@ const LGTMAdapter = (() => {
     }
     lines.push(`URL: ${sourceURL || window.location.href}`);
 
-    const plainText = lines.join('\n');
-
-    // Attempt to write text + image together if screenshot is small enough
-    if (screenshotBase64 && screenshotBase64.length < 800000) {
-      try {
-        const blob = await fetch(`data:image/png;base64,${screenshotBase64}`).then(r => r.blob());
-        const textBlob = new Blob([plainText], { type: 'text/plain' });
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'text/plain': textBlob, 'image/png': blob })
-        ]);
-        return { success: true };
-      } catch (_) {
-        // Fall through to text-only
+    // Save screenshot to ~/Downloads/lgtm-inspector/ and append path to text
+    if (screenshotBase64) {
+      const saved = await new Promise(resolve => {
+        chrome.runtime.sendMessage({ action: 'saveScreenshot', base64: screenshotBase64 }, response => {
+          resolve(response || {});
+        });
+      });
+      if (saved.path) {
+        lines.push(`Screenshot: ${saved.path}`);
       }
     }
+
+    const plainText = lines.join('\n');
 
     try {
       await navigator.clipboard.writeText(plainText);

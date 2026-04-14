@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LGTM Inspector — Team Install Guide</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+      line-height: 1.6;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #0f172a;
+      color: #fff;
+      padding: 48px 24px 40px;
+      text-align: center;
+    }
+    .badge {
+      display: inline-block;
+      background: #10b981;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 99px;
+      margin-bottom: 16px;
+    }
+    header h1 { font-size: 32px; font-weight: 700; margin-bottom: 10px; }
+    header p  { font-size: 16px; color: #94a3b8; max-width: 480px; margin: 0 auto 32px; }
+
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #10b981;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 12px 28px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background .15s;
+    }
+    .download-btn:hover { background: #059669; }
+    .download-btn svg { flex-shrink: 0; }
+
+    /* ── Main ── */
+    main {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 56px 24px 80px;
+    }
+
+    /* ── Install steps ── */
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 20px;
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 64px;
+    }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #10b981;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+    .step-body { flex: 1; }
+    .step-body strong { display: block; font-size: 14px; margin-bottom: 3px; }
+    .step-body span { font-size: 13px; color: #475569; }
+    code {
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 12px;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      padding: 1px 6px;
+      border-radius: 4px;
+      color: #0f172a;
+    }
+
+    /* ── Demo videos ── */
+    .demos { display: flex; flex-direction: column; gap: 48px; }
+
+    .demo { }
+    .demo-header { margin-bottom: 16px; }
+    .demo-header h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .demo-header p {
+      font-size: 14px;
+      color: #475569;
+      max-width: 600px;
+    }
+
+    .video-wrap {
+      width: 100%;
+      background: #0f172a;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #1e293b;
+      margin-bottom: 16px;
+      aspect-ratio: 16/9;
+      position: relative;
+    }
+    .video-wrap video {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+    .video-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #475569;
+      font-size: 13px;
+      gap: 10px;
+    }
+    .video-placeholder svg { opacity: .4; }
+
+    .callout {
+      display: flex;
+      gap: 10px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #166534;
+    }
+    .callout svg { flex-shrink: 0; margin-top: 1px; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #e2e8f0;
+      margin: 64px 0;
+    }
+
+    /* ── Shortcut pill ── */
+    .shortcut-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    kbd {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-bottom-width: 2px;
+      border-radius: 5px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      color: #1e293b;
+    }
+    .shortcut-desc { font-size: 13px; color: #64748b; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 12px;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="badge">Team Tool</div>
+  <h1>LGTM Inspector</h1>
+  <p>Inspect UI components, capture selections, and copy annotations — all without leaving your browser.</p>
+  <a class="download-btn" href="https://github.com/tomo-at/lgtm-inspector/releases/latest" target="_blank">
+    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M8 12l4 4 4-4M12 4v12"/>
+    </svg>
+    Download Latest
+  </a>
+</header>
+
+<main>
+
+  <!-- ── Demo videos ── -->
+  <p class="section-title">How to use</p>
+  <div class="demos">
+
+    <!-- Demo 1: Click -->
+    <div class="demo">
+      <div class="demo-header">
+        <h2>1. Click to identify a component</h2>
+        <p>
+          Activate the inspector, then click any element on the page.
+          The extension detects the component name from React, Vue, CSS class names, or test IDs
+          and copies it to your clipboard along with the page URL.
+        </p>
+      </div>
+      <div class="video-wrap">
+        <video src="videos/demo-click.mp4" controls playsinline preload="metadata"></video>
+        <div class="video-placeholder" id="ph-click">
+          <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 7.5v9A2.25 2.25 0 004.5 18.75z"/>
+          </svg>
+          Video coming soon
+        </div>
+      </div>
+      <div class="callout">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v4.59L7.3 9.24a.75.75 0 00-1.1 1.02l3.25 3.5a.75.75 0 001.1 0l3.25-3.5a.75.75 0 10-1.1-1.02l-1.95 2.1V6.75z" clip-rule="evenodd"/>
+        </svg>
+        The copied text includes <strong>Component:</strong> (the detected name) and <strong>URL:</strong> — paste it directly into a comment or ticket.
+      </div>
+    </div>
+
+    <!-- Demo 2: Drag -->
+    <div class="demo">
+      <div class="demo-header">
+        <h2>2. Drag to capture a region</h2>
+        <p>
+          Instead of clicking, click and drag to draw a selection rectangle over any area.
+          A cropped screenshot is saved to <code>~/Downloads/lgtm-inspector/</code>
+          and the file path is included in the copied text so teammates (or Claude) can open it directly.
+        </p>
+      </div>
+      <div class="video-wrap">
+        <video src="videos/demo-drag.mp4" controls playsinline preload="metadata"></video>
+        <div class="video-placeholder" id="ph-drag">
+          <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 7.5v9A2.25 2.25 0 004.5 18.75z"/>
+          </svg>
+          Video coming soon
+        </div>
+      </div>
+      <div class="callout">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v4.59L7.3 9.24a.75.75 0 00-1.1 1.02l3.25 3.5a.75.75 0 001.1 0l3.25-3.5a.75.75 0 10-1.1-1.02l-1.95 2.1V6.75z" clip-rule="evenodd"/>
+        </svg>
+        The copied text includes <strong>Screenshot:</strong> with the full file path — share it in a ticket or paste directly into Claude Code.
+      </div>
+    </div>
+
+  </div><!-- /demos -->
+
+  <hr class="divider">
+
+  <!-- ── Install steps ── -->
+  <p class="section-title">Installation</p>
+  <ol class="steps">
+    <li class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Download the ZIP</strong>
+        <span>Click the button above, then download <code>lgtm-inspector-standalone.zip</code> from the latest release.</span>
+      </div>
+    </li>
+    <li class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Unzip it anywhere</strong>
+        <span>Extract to a stable location (e.g. your home folder). Do not delete the folder after installation.</span>
+      </div>
+    </li>
+    <li class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Open Chrome Extensions</strong>
+        <span>Navigate to <code>chrome://extensions</code> and turn on <strong>Developer mode</strong> (top right toggle).</span>
+      </div>
+    </li>
+    <li class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>Load the extension</strong>
+        <span>Click <strong>Load unpacked</strong> and select the unzipped folder.</span>
+      </div>
+    </li>
+    <li class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <strong>Pin it to your toolbar</strong>
+        <span>Click the puzzle icon in Chrome's toolbar, then pin <strong>LGTM Inspector (Standalone)</strong> for easy access. The icon is green.</span>
+      </div>
+    </li>
+  </ol>
+
+  <div class="shortcut-row" style="margin-bottom: 64px;">
+    <kbd>⌘</kbd><kbd>Shift</kbd><kbd>I</kbd>
+    <span class="shortcut-desc">Toggle the inspector on any page. Customize at <code>chrome://extensions/shortcuts</code>.</span>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ── Update instructions ── -->
+  <p class="section-title">Updating</p>
+  <ol class="steps">
+    <li class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Download the new ZIP from the latest release</strong>
+        <span>Same link as above — always points to the latest version.</span>
+      </div>
+    </li>
+    <li class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Replace the old folder</strong>
+        <span>Unzip and overwrite the previous folder in the same location.</span>
+      </div>
+    </li>
+    <li class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Reload in Chrome</strong>
+        <span>Go to <code>chrome://extensions</code>, find LGTM Inspector (Standalone), and click the reload icon (↺).</span>
+      </div>
+    </li>
+  </ol>
+
+</main>
+
+<footer>
+  LGTM Inspector — Internal Team Tool
+</footer>
+
+<script>
+  // Hide placeholder once video metadata is loaded
+  ['click', 'drag'].forEach(name => {
+    const video = document.querySelector(`video[src="videos/demo-${name}.mp4"]`);
+    const ph = document.getElementById(`ph-${name}`);
+    if (!video || !ph) return;
+    video.addEventListener('loadedmetadata', () => { ph.style.display = 'none'; });
+  });
+</script>
+</body>
+</html>

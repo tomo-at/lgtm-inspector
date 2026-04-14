@@ -4,6 +4,7 @@ const LGTMOverlay = (() => {
 
   let highlightEl = null;
   let tooltipEl = null;
+  let selectionEl = null;
 
   function ensureHighlight() {
     if (highlightEl) return;
@@ -44,6 +45,48 @@ const LGTMOverlay = (() => {
       display: 'none'
     });
     document.documentElement.appendChild(tooltipEl);
+  }
+
+  function ensureSelection() {
+    if (selectionEl) return;
+    selectionEl = document.createElement('div');
+    selectionEl.id = '__lgtm_selection__';
+    Object.assign(selectionEl.style, {
+      position: 'fixed',
+      pointerEvents: 'none',
+      zIndex: '2147483645',
+      border: '2px solid rgba(59,130,246,0.9)',
+      background: 'rgba(59,130,246,0.1)',
+      borderRadius: '2px',
+      boxSizing: 'border-box',
+      display: 'none'
+    });
+    document.documentElement.appendChild(selectionEl);
+  }
+
+  function showDragRect(x1, y1, x2, y2) {
+    ensureSelection();
+    const left = Math.min(x1, x2);
+    const top  = Math.min(y1, y2);
+    const w    = Math.abs(x2 - x1);
+    const h    = Math.abs(y2 - y1);
+    Object.assign(selectionEl.style, {
+      left: left + 'px', top: top + 'px',
+      width: w + 'px', height: h + 'px',
+      display: w > 2 && h > 2 ? 'block' : 'none'
+    });
+  }
+
+  function lockDragRect() {
+    if (!selectionEl) return;
+    Object.assign(selectionEl.style, {
+      border: '2px solid rgba(59,130,246,1)',
+      background: 'rgba(59,130,246,0.15)'
+    });
+  }
+
+  function hideDragRect() {
+    if (selectionEl) { selectionEl.remove(); selectionEl = null; }
   }
 
   function show(element, componentPath, mouseX, mouseY) {
@@ -111,7 +154,8 @@ const LGTMOverlay = (() => {
   function destroy() {
     if (highlightEl) { highlightEl.remove(); highlightEl = null; }
     if (tooltipEl) { tooltipEl.remove(); tooltipEl = null; }
+    if (selectionEl) { selectionEl.remove(); selectionEl = null; }
   }
 
-  return { show, hide, lock, unlock, destroy };
+  return { show, hide, lock, unlock, destroy, showDragRect, lockDragRect, hideDragRect };
 })();

@@ -92,6 +92,45 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ dataUrl });
       }
     });
-    return true; // Keep channel open for async response
+    return true;
+  }
+
+  // Save screenshot to disk (standalone only — requires "downloads" permission)
+  if (message.action === 'saveScreenshot') {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filename = `lgtm-inspector/screenshot-${timestamp}.png`;
+    chrome.downloads.download({
+      url: `data:image/png;base64,${message.base64}`,
+      filename,
+      saveAs: false,
+      conflictAction: 'uniquify'
+    }, id => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ error: chrome.runtime.lastError.message });
+        return;
+      }
+
+      let responded = false;
+      function respond(path) {
+        if (responded) return;
+        responded = true;
+        chrome.downloads.onChanged.removeListener(onChange);
+        sendResponse({ path });
+      }
+
+      // onChanged fires with delta.filename.current once Chrome resolves the absolute path
+      function onChange(delta) {
+        if (delta.id !== id) return;
+        if (delta.filename && delta.filename.current) respond(delta.filename.current);
+      }
+      chrome.downloads.onChanged.addListener(onChange);
+
+      // Also check immediately — filename may already be resolved on fast machines
+      chrome.downloads.search({ id }, items => {
+        const path = items && items[0] && items[0].filename;
+        if (path && path.startsWith('/')) respond(path);
+      });
+    });
+    return true;
   }
 });

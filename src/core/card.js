@@ -46,7 +46,7 @@ const LGTMCard = (() => {
       .replace(/"/g, '&quot;');
   }
 
-  function show(element, componentPath, { onSubmit, onCancel, projects }) {
+  function show(element, componentPath, { onSubmit, onCancel, projects, anchorRect = null }) {
     injectStyles();
     hide();
 
@@ -76,7 +76,7 @@ const LGTMCard = (() => {
       <div class="__lgst" id="__lgtm_status__"></div>
     `;
 
-    positionCard(element);
+    positionCard(element, anchorRect);
     document.documentElement.appendChild(cardEl);
 
     if (isLGTM && projects && projects.length > 0) {
@@ -176,9 +176,9 @@ const LGTMCard = (() => {
     }
   }
 
-  function positionCard(element) {
+  function positionCard(element, anchorRect) {
     if (!cardEl) return;
-    const rect = element.getBoundingClientRect();
+    const rect = anchorRect || (element && element.getBoundingClientRect()) || { left: 20, top: 20, right: 20, bottom: 20, width: 0, height: 0 };
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const cardW = 332; // 320 + 12 margin

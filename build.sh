@@ -17,7 +17,7 @@ build_variant() {
   mkdir -p "$out/icons"
 
   # Generate icons if they don't exist
-  if [ ! -f "icons/icon16.png" ]; then
+  if [ ! -f "icons/icon16.png" ] || [ ! -f "icons-standalone/icon16.png" ]; then
     echo "  Generating icons..."
     python3 tools/create_icons.py
   fi
@@ -51,7 +51,9 @@ build_variant() {
   [ -f "src/manifest.${target}.json" ] && manifest="src/manifest.${target}.json"
   cp "$manifest" "$out/manifest.json"
 
-  cp -r icons/ "$out/icons/"
+  local icons_src="icons"
+  [ -d "icons-${target}" ] && icons_src="icons-${target}"
+  cp -r "${icons_src}/" "$out/icons/"
 
   echo "  ✓ $out/content.js   ($(wc -c < "$out/content.js") bytes)"
   echo "  ✓ Done"
