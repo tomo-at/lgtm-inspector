@@ -146,6 +146,7 @@ const LGTMOverlay = (() => {
 
   function unlock() {
     if (highlightEl) {
+      highlightEl.style.display = 'none';
       highlightEl.style.border = '2px solid rgba(59,130,246,0.85)';
       highlightEl.style.background = 'rgba(59,130,246,0.07)';
     }

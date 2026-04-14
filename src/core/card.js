@@ -212,8 +212,9 @@ const LGTMCard = (() => {
   }
 
   function _cancel() {
+    const cb = onCancelCb;
     hide();
-    onCancelCb && onCancelCb();
+    cb && cb();
   }
 
   function hide() {
