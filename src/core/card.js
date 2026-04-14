@@ -20,7 +20,7 @@ const LGTMCard = (() => {
 #__lgtm_card__ .__lga{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
 #__lgtm_card__ .__lgb{border:none;border-radius:6px;padding:6px 14px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:500;transition:opacity .15s}
 #__lgtm_card__ .__lgb:hover{opacity:.83}
-#__lgtm_card__ .__lgbc{background:transparent;color:#64748b;border:1px solid #e2e8f0}
+#__lgtm_card__ .__lgbc{background:transparent;color:#e2e8f0;border:1px solid #e2e8f0}
 #__lgtm_card__ .__lgbs{background:#3b82f6;color:#fff}
 #__lgtm_card__ .__lgbs:disabled{opacity:.5;cursor:not-allowed}
 #__lgtm_card__ .__lgh{font-size:10px;color:#94a3b8;margin-top:4px;text-align:right}

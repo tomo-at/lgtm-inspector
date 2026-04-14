@@ -19,7 +19,6 @@
   "commands": {
     "_execute_action": {
       "suggested_key": {
-        "mac": "Command+Shift+I",
         "default": "Ctrl+Shift+I"
       },
       "description": "Toggle LGTM Inspector (customize at chrome://extensions/shortcuts)"

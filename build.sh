@@ -67,6 +67,14 @@ else
   build_variant "$TARGET"
 fi
 
+# Sync version in docs/index.html from manifest.standalone.json
+if [ -f "src/manifest.standalone.json" ] && [ -f "docs/index.html" ]; then
+  VERSION=$(python3 -c "import json; print(json.load(open('src/manifest.standalone.json'))['version'])")
+  sed -i '' "s/Download Latest (v[0-9][0-9.]*)/Download Latest (v${VERSION})/g" docs/index.html
+  sed -i '' "s/>v[0-9][0-9.]*<\/strong>/>v${VERSION}<\/strong>/g" docs/index.html
+  echo "  ✓ docs/index.html version synced → v${VERSION}"
+fi
+
 echo ""
 echo "Load extension in Chrome:"
 echo "  chrome://extensions → Enable 'Developer mode' → 'Load unpacked' → select builds/<variant>/"
