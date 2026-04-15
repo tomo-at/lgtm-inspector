@@ -11,7 +11,6 @@
   let active = false;
   let selectedEl = null;
   let selectedPath = null;
-  let borderEl = null;
   let pendingScreenshot = null; // captured on click/drag, before card UI appears
 
   // Drag selection state
@@ -20,31 +19,11 @@
   let dragHandled = false; // suppresses the click event that follows a completed drag
   let dragLocked = false;  // true while drag-region card is open (blocks hover highlight)
 
-  // ── Activation border (thin colored frame on viewport edge) ────────────────
-  function showBorder() {
-    if (borderEl) return;
-    borderEl = document.createElement('div');
-    borderEl.id = '__lgtm_border__';
-    Object.assign(borderEl.style, {
-      position: 'fixed', inset: '0',
-      border: '3px solid rgba(59,130,246,.6)',
-      pointerEvents: 'none',
-      zIndex: '2147483644',
-      boxSizing: 'border-box'
-    });
-    document.documentElement.appendChild(borderEl);
-  }
-
-  function hideBorder() {
-    if (borderEl) { borderEl.remove(); borderEl = null; }
-  }
-
   // ── Activate / deactivate ──────────────────────────────────────────────────
   function activate() {
     if (active) return;
     active = true;
     document.documentElement.style.cursor = 'crosshair';
-    showBorder();
     document.addEventListener('mousedown', onMouseDown, true);
     document.addEventListener('mousemove', onMouseMove, true);
     document.addEventListener('mouseup', onMouseUp, true);
@@ -56,7 +35,6 @@
     if (!active) return;
     active = false;
     document.documentElement.style.cursor = '';
-    hideBorder();
     LGTMOverlay.destroy();
     LGTMCard.hide();
     selectedEl = null;
