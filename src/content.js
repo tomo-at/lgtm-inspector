@@ -87,6 +87,7 @@
     if (e.button !== 0) return;
     e.preventDefault();      // prevent text selection during drag
     e.stopPropagation();     // prevent page from seeing mousedown (closes menus/dropdowns)
+    if (selectedEl || dragLocked) return; // card is open — ignore new selections
     dragStart = { x: e.clientX, y: e.clientY };
     isDragging = false;
   }
@@ -167,6 +168,8 @@
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
+
+    if (selectedEl || dragLocked) return; // card is open — ignore new selections
 
     selectedEl = e.target;
     selectedPath = LGTMInspector.getComponentPath(e.target);
