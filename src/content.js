@@ -18,6 +18,7 @@
   let dragStart = null;    // {x, y} recorded on mousedown
   let isDragging = false;  // true once drag threshold exceeded
   let dragHandled = false; // suppresses the click event that follows a completed drag
+  let dragLocked = false;  // true while drag-region card is open (blocks hover highlight)
 
   // ── Activation border (thin colored frame on viewport edge) ────────────────
   function showBorder() {
@@ -63,6 +64,7 @@
     dragStart = null;
     isDragging = false;
     dragHandled = false;
+    dragLocked = false;
     document.removeEventListener('mousedown', onMouseDown, true);
     document.removeEventListener('mousemove', onMouseMove, true);
     document.removeEventListener('mouseup', onMouseUp, true);
@@ -90,7 +92,7 @@
   }
 
   function onMouseMove(e) {
-    if (selectedEl) return; // locked after click
+    if (selectedEl || dragLocked) return; // locked after click or drag
     if (isOwnElement(e.target)) return;
 
     if (dragStart) {
@@ -139,6 +141,8 @@
     };
 
     LGTMOverlay.lockDragRect();
+    LGTMOverlay.hide(); // hide component highlight so only drag rect remains
+    dragLocked = true;
 
     const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
     const regionPath = { path: isLGTM ? '選択範囲' : 'Selected area', accuracy: 'high' };
@@ -182,11 +186,16 @@
       e.preventDefault();
       e.stopPropagation();
       if (selectedEl) {
-        // Close card, go back to hover mode
+        // Close click-selection card, go back to hover mode
         LGTMCard.hide();
         LGTMOverlay.unlock();
         selectedEl = null;
         selectedPath = null;
+      } else if (dragLocked) {
+        // Close drag-selection card, go back to hover mode
+        LGTMCard.hide();
+        LGTMOverlay.hideDragRect();
+        dragLocked = false;
       } else {
         deactivate();
       }
@@ -246,7 +255,7 @@
       anchorRect: rect,
       projects,
       onSubmit: data => handleDragSubmit({ ...data, rect, componentPath }),
-      onCancel: () => { LGTMOverlay.hideDragRect(); }
+      onCancel: () => { LGTMOverlay.hideDragRect(); dragLocked = false; }
     });
   }
 
