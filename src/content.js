@@ -37,6 +37,8 @@
     document.documentElement.style.cursor = '';
     LGTMOverlay.destroy();
     LGTMCard.hide();
+    LGTMStyler.revert();   // undo any live CSS preview before tearing down
+    LGTMStyler.reset();
     selectedEl = null;
     selectedPath = null;
     dragStart = null;
@@ -54,10 +56,10 @@
 
   // ── Event handlers ──────────────────────────────────────────────────────────
   function isOwnElement(el) {
-    return el && (
-      el.id && el.id.startsWith('__lgtm_') ||
-      (el.closest && el.closest('#__lgtm_card__'))
-    );
+    if (!el) return false;
+    // Any element inside an LGTM-owned subtree (card, token popover, overlays).
+    if (el.closest && el.closest('[id^="__lgtm_"]')) return true;
+    return !!(el.id && el.id.startsWith('__lgtm_'));
   }
 
   function onMouseDown(e) {
@@ -149,17 +151,50 @@
 
     if (selectedEl || dragLocked) return; // card is open — ignore new selections
 
-    selectedEl = e.target;
-    selectedPath = LGTMInspector.getComponentPath(e.target);
-    LGTMOverlay.lock(selectedEl);
+    selectElement(e.target);
+  }
 
-    // Capture screenshot NOW — before the card UI appears in the viewport
+  // Lock + screenshot + open card for a single element. Shared by click, DOM-tree
+  // navigation, and edit-mode re-open (editCtx carries the entry being edited).
+  function selectElement(element, editCtx) {
+    selectedEl = element;
+    selectedPath = LGTMInspector.getComponentPath(element);
+    LGTMOverlay.lock(element);
+
+    // Capture screenshot NOW — before the card UI appears in the viewport.
+    // hideOwnUI keeps the lock highlight and the batch tray out of the shot.
     pendingScreenshot = null;
-    captureElement(selectedEl)
+    captureElement(element, { hideOwnUI: true })
       .then(b64 => { pendingScreenshot = b64; })
       .catch(() => { pendingScreenshot = null; });
 
-    openCard(selectedEl, selectedPath);
+    openCard(element, selectedPath, editCtx);
+  }
+
+  // Re-select a related element (parent / first child / prev / next sibling).
+  function navigateSelection(dir) {
+    if (!selectedEl) return;
+    const candidate = {
+      parent: selectedEl.parentElement,
+      child:  selectedEl.firstElementChild,
+      prev:   selectedEl.previousElementSibling,
+      next:   selectedEl.nextElementSibling
+    }[dir];
+    if (!isNavigable(candidate, dir)) return;
+
+    // Drop any live preview on the current element before switching.
+    LGTMStyler.revert();
+    LGTMStyler.reset();
+    LGTMCard.hide();
+    LGTMOverlay.unlock();
+    selectElement(candidate);
+  }
+
+  function isNavigable(el, dir) {
+    if (!el || el.nodeType !== 1) return false;
+    if (isOwnElement(el)) return false;
+    if (dir === 'parent' && (el === document.body || el === document.documentElement)) return false;
+    return true;
   }
 
   function onKeyDown(e) {
@@ -169,6 +204,8 @@
       if (selectedEl) {
         // Close click-selection card, go back to hover mode
         LGTMCard.hide();
+        LGTMStyler.revert();
+        LGTMStyler.reset();
         LGTMOverlay.unlock();
         selectedEl = null;
         selectedPath = null;
@@ -184,29 +221,44 @@
   }
 
   // ── Card ────────────────────────────────────────────────────────────────────
-  async function openCard(element, componentPath) {
-    let projects = null;
-    const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
-
-    if (isLGTM) {
-      // Fetch from API, fall back to cached list
-      projects = await LGTMAdapter.getProjects();
-      if (projects) {
-        chrome.storage.local.set({ cachedProjects: projects });
-      } else {
-        await new Promise(resolve => {
-          chrome.storage.local.get('cachedProjects', d => {
-            projects = d.cachedProjects || [];
-            resolve();
-          });
-        });
-      }
+  // Fetch LGTM projects (live, falling back to the cached list). null for standalone.
+  async function fetchProjects() {
+    if (LGTM_CONFIG.BUILD_TARGET !== 'lgtm') return null;
+    let projects = await LGTMAdapter.getProjects();
+    if (projects) {
+      chrome.storage.local.set({ cachedProjects: projects });
+    } else {
+      await new Promise(resolve => {
+        chrome.storage.local.get('cachedProjects', d => { projects = d.cachedProjects || []; resolve(); });
+      });
     }
+    return projects;
+  }
+
+  async function openCard(element, componentPath, editCtx = {}) {
+    const projects = await fetchProjects();
+
+    const nav = {
+      parent: isNavigable(element.parentElement, 'parent'),
+      child:  isNavigable(element.firstElementChild, 'child'),
+      prev:   isNavigable(element.previousElementSibling, 'prev'),
+      next:   isNavigable(element.nextElementSibling, 'next')
+    };
+
+    const editId = editCtx.editId || null;
 
     LGTMCard.show(element, componentPath, {
       projects,
-      onSubmit: data => handleSubmit({ ...data, element, componentPath }),
+      nav,
+      initialText: editCtx.initialText || '',
+      seedEdits: editCtx.seedEdits || null,
+      editId,
+      onNavigate: navigateSelection,
+      onSubmit: data => handleSubmit({ ...data, element, componentPath, editId }),
+      onAdd: data => handleAdd({ ...data, element, componentPath, editId }),
       onCancel: () => {
+        LGTMStyler.revert();
+        LGTMStyler.reset();
         selectedEl = null;
         selectedPath = null;
         LGTMOverlay.unlock();
@@ -214,30 +266,146 @@
     });
   }
 
-  async function openDragCard(rect, componentPath) {
-    let projects = null;
-    const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
+  // Close the card and return to hover mode, dropping any live CSS preview.
+  function dismissCard() {
+    LGTMStyler.revert();
+    LGTMStyler.reset();
+    LGTMCard.hide();
+    LGTMOverlay.unlock();
+    selectedEl = null;
+    selectedPath = null;
+  }
 
-    if (isLGTM) {
-      projects = await LGTMAdapter.getProjects();
-      if (projects) {
-        chrome.storage.local.set({ cachedProjects: projects });
-      } else {
-        await new Promise(resolve => {
-          chrome.storage.local.get('cachedProjects', d => {
-            projects = d.cachedProjects || [];
-            resolve();
-          });
-        });
-      }
+  // Add the current element's edit to the batch tray (instead of sending now).
+  // With editId, update the existing entry in place instead of adding a new one.
+  async function handleAdd({ text, project, styleEdits, element, componentPath, editId }) {
+    const edits = styleEdits || [];
+    let screenshotBase64;
+    if (edits.length) {
+      try { screenshotBase64 = await captureElement(element, { hideOwnUI: true }); }
+      catch (e) { screenshotBase64 = pendingScreenshot; }
+    } else {
+      screenshotBase64 = pendingScreenshot;
     }
+    pendingScreenshot = null;
+
+    const entry = {
+      element, // kept for live re-editing later (may detach on SPA re-render)
+      path: componentPath.path,
+      accuracy: componentPath.accuracy,
+      text,
+      styleEdits: edits,
+      screenshotBase64,
+      project,
+      sourceURL: window.location.href
+    };
+    if (editId) LGTMTray.replace(editId, entry);
+    else LGTMTray.add(entry);
+    dismissCard();
+  }
+
+  async function openDragCard(rect, componentPath) {
+    const projects = await fetchProjects();
 
     LGTMCard.show(null, componentPath, {
       anchorRect: rect,
       projects,
       onSubmit: data => handleDragSubmit({ ...data, rect, componentPath }),
+      onAdd: data => handleDragAdd({ ...data, rect, componentPath }),
       onCancel: () => { LGTMOverlay.hideDragRect(); dragLocked = false; }
     });
+  }
+
+  // Add a dragged-region annotation to the batch tray.
+  async function handleDragAdd({ text, project, rect, componentPath }) {
+    let screenshotBase64 = pendingScreenshot;
+    pendingScreenshot = null;
+    if (!screenshotBase64) {
+      try { screenshotBase64 = await captureRegion(rect); } catch (e) { /* ignore */ }
+    }
+    LGTMTray.add({
+      path: componentPath.path,
+      accuracy: componentPath.accuracy,
+      text,
+      styleEdits: [],
+      screenshotBase64,
+      project,
+      sourceURL: window.location.href
+    });
+    LGTMCard.hide();
+    LGTMOverlay.hideDragRect();
+    dragLocked = false;
+  }
+
+  // ── Edit a stacked entry ──────────────────────────────────────────────────────
+  // Re-open the entry's element with its prior note + CSS edits restored and re-previewed.
+  // If the element is gone (SPA re-render), fall back to a note-only editor.
+  function handleEdit(entry) {
+    if (selectedEl) dismissCard();
+    if (dragLocked) { LGTMCard.hide(); LGTMOverlay.hideDragRect(); dragLocked = false; }
+    activate(); // ensure Escape / selection guards are wired even if the inspector was off
+
+    const el = entry.element;
+    if (el && el.isConnected) {
+      selectElement(el, {
+        editId: entry.id,
+        initialText: entry.text || '',
+        seedEdits: entry.styleEdits || []
+      });
+    } else {
+      openFallbackEdit(entry);
+    }
+  }
+
+  // Fallback editor (element gone): note-only card with the CSS diff folded into editable text.
+  async function openFallbackEdit(entry) {
+    const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
+    const folded = [entry.text, LGTMStyler.formatEdits(entry.styleEdits, { isLGTM })].filter(Boolean).join('\n\n');
+    const componentPath = { path: entry.path, accuracy: entry.accuracy };
+    const projects = await fetchProjects();
+
+    dragLocked = true; // reuse the "card open, ignore new selections" guard
+    LGTMCard.show(null, componentPath, {
+      projects,
+      initialText: folded,
+      editId: entry.id,
+      onAdd: data => {
+        LGTMTray.replace(entry.id, {
+          element: null,
+          path: entry.path,
+          accuracy: entry.accuracy,
+          text: data.text,
+          styleEdits: [], // CSS was folded into the note text
+          screenshotBase64: entry.screenshotBase64,
+          project: data.project || entry.project,
+          sourceURL: entry.sourceURL
+        });
+        LGTMCard.hide();
+        dragLocked = false;
+      },
+      onSubmit: data => handleFallbackSubmit({ ...data, entry }),
+      onCancel: () => { dragLocked = false; }
+    });
+  }
+
+  async function handleFallbackSubmit({ text, project, entry }) {
+    const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
+    const submitLabel = isLGTM ? 'Add to LGTM ▶' : 'Copy';
+    const result = await LGTMAdapter.submit({
+      text,
+      componentPath: { path: entry.path, accuracy: entry.accuracy },
+      sourceURL: entry.sourceURL || window.location.href,
+      project: project || entry.project,
+      screenshotBase64: entry.screenshotBase64
+    });
+    if (result.success) {
+      LGTMTray.remove(entry.id);
+      LGTMCard.showStatus(isLGTM ? '✓ Added to LGTM' : '✓ Copied to clipboard', 'success');
+      setTimeout(() => { LGTMCard.hide(); dragLocked = false; }, 1400);
+    } else {
+      LGTMCard.showStatus('⚠ ' + (result.error || (isLGTM ? 'エラーが発生しました' : 'An error occurred')), 'error');
+      LGTMCard.resetSubmit(submitLabel);
+    }
   }
 
   async function handleDragSubmit({ text, project, rect, componentPath }) {
@@ -271,23 +439,45 @@
     }
   }
 
-  async function handleSubmit({ text, project, element, componentPath }) {
+  async function handleSubmit({ text, project, styleEdits, element, componentPath, editId }) {
     const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
     const submitLabel = isLGTM ? 'Add to LGTM ▶' : 'Copy';
 
-    // Use screenshot captured on click (before card appeared); fall back to live capture
-    let screenshotBase64 = pendingScreenshot;
-    pendingScreenshot = null;
-    if (!screenshotBase64) {
-      try {
-        screenshotBase64 = await captureElement(element);
-      } catch (e) {
-        console.warn('[LGTM Inspector] Screenshot failed:', e.message);
-      }
+    const edits = styleEdits || [];
+    const hasEdits = edits.length > 0;
+
+    // Merge the CSS diff into the note text as before→after intent.
+    const styleText = LGTMStyler.formatEdits(edits, { isLGTM });
+    let finalText = [text, styleText].filter(Boolean).join('\n\n');
+    if (!text && hasEdits) {
+      const title = isLGTM ? `スタイル調整: ${componentPath.path}` : `Style tweak: ${componentPath.path}`;
+      finalText = title + '\n\n' + styleText;
     }
 
+    // With style edits, capture the *edited* (after) state — hide our own UI so the
+    // card/overlay don't appear in the shot. Otherwise reuse the click-time (before) shot.
+    let screenshotBase64;
+    if (hasEdits) {
+      try {
+        screenshotBase64 = await captureElement(element, { hideOwnUI: true });
+      } catch (e) {
+        console.warn('[LGTM Inspector] Screenshot failed:', e.message);
+        screenshotBase64 = pendingScreenshot;
+      }
+    } else {
+      screenshotBase64 = pendingScreenshot;
+      if (!screenshotBase64) {
+        try {
+          screenshotBase64 = await captureElement(element);
+        } catch (e) {
+          console.warn('[LGTM Inspector] Screenshot failed:', e.message);
+        }
+      }
+    }
+    pendingScreenshot = null;
+
     const result = await LGTMAdapter.submit({
-      text,
+      text: finalText,
       componentPath,
       sourceURL: window.location.href,
       project,
@@ -295,6 +485,7 @@
     });
 
     if (result.success) {
+      if (editId) LGTMTray.remove(editId); // this entry was just sent — drop it from the tray
       LGTMCard.showStatus(isLGTM ? '✓ Added to LGTM' : '✓ Copied to clipboard', 'success');
       setTimeout(() => { LGTMCard.hide(); deactivate(); }, 1400);
     } else {
@@ -304,9 +495,14 @@
   }
 
   // ── Screenshot capture ──────────────────────────────────────────────────────
-  function captureElement(element) {
+  function captureElement(element, { hideOwnUI = false } = {}) {
     return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage({ action: 'captureScreenshot' }, response => {
+      // Hide LGTM overlays/card so they don't appear in the shot (used for the "after" capture).
+      const lgtmEls = hideOwnUI ? [...document.querySelectorAll('[id^="__lgtm_"]')] : [];
+      lgtmEls.forEach(el => { el.style.visibility = 'hidden'; });
+
+      const run = () => chrome.runtime.sendMessage({ action: 'captureScreenshot' }, response => {
+        lgtmEls.forEach(el => { el.style.visibility = ''; });
         if (chrome.runtime.lastError) {
           return reject(new Error(chrome.runtime.lastError.message));
         }
@@ -315,6 +511,10 @@
         }
         annotateScreenshot(response.dataUrl, element).then(resolve).catch(reject);
       });
+
+      // Double rAF ensures the visibility change is painted before capture fires.
+      if (hideOwnUI) requestAnimationFrame(() => requestAnimationFrame(run));
+      else run();
     });
   }
 
@@ -409,6 +609,22 @@
       img.src = dataUrl;
     });
   }
+
+  // ── Batch send (from the tray) ───────────────────────────────────────────────
+  async function handleBatchSend(entries) {
+    if (!entries || entries.length === 0) return;
+    const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
+    const result = await LGTMAdapter.submitBatch(entries);
+    if (result.success) {
+      LGTMTray.showStatus(isLGTM ? '✓ Added to LGTM' : '✓ Copied to clipboard', 'success');
+      setTimeout(() => LGTMTray.clear(), 1200);
+    } else {
+      LGTMTray.resetSend();
+      LGTMTray.showStatus('⚠ ' + (result.error || (isLGTM ? 'エラーが発生しました' : 'An error occurred')), 'error');
+    }
+  }
+
+  LGTMTray.init({ onSend: handleBatchSend, onEdit: handleEdit });
 
   // ── Message listener (from background) ─────────────────────────────────────
   chrome.runtime.onMessage.addListener(msg => {

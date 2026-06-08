@@ -37,5 +37,29 @@ const LGTMAdapter = (() => {
     }
   }
 
-  return { getProjects, submit };
+  // Batch — combine all entries into one clipboard blob. Each entry's screenshot is
+  // saved to disk and its path appended in a trailing list.
+  async function submitBatch(entries) {
+    const saved = [];
+    for (let i = 0; i < entries.length; i++) {
+      const b64 = entries[i].screenshotBase64;
+      if (!b64) continue;
+      const res = await new Promise(resolve => {
+        chrome.runtime.sendMessage({ action: 'saveScreenshot', base64: b64 }, r => resolve(r || {}));
+      });
+      if (res.path) saved.push(`- [${i + 1}] ${res.path}`);
+    }
+
+    let text = LGTMTray.formatBatch(entries, { isLGTM: false });
+    if (saved.length) text += '\n\nScreenshots:\n' + saved.join('\n');
+
+    try {
+      await navigator.clipboard.writeText(text);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: 'Clipboard access denied' };
+    }
+  }
+
+  return { getProjects, submit, submitBatch };
 })();

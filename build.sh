@@ -38,7 +38,9 @@ build_variant() {
     sed "s/__BUILD_TARGET__/$target/g" src/config.js
     cat src/core/inspector.js
     cat src/core/overlay.js
+    cat src/core/styler.js
     cat src/core/card.js
+    cat src/core/tray.js
     cat "$adapter"
     cat src/content.js
     printf '\n})();\n'

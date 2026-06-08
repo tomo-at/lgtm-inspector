@@ -27,7 +27,9 @@ src/
   core/
     inspector.js         # コンポーネントパス検出ロジック
     overlay.js           # ホバー時のハイライトオーバーレイ
-    card.js              # アノテーションカードUI（テキスト入力・送信ボタン等）
+    styler.js            # CSS編集パネル（即時プレビュー・差分抽出・トークン参照・差分整形）
+    card.js              # アノテーションカードUI（メモ/スタイルタブ・DOMナビ・送信/ためる）
+    tray.js              # バッチトレイ（編集をバッジで蓄積し、まとめて1件として送信）
   adapters/
     lgtm.js              # lgtmバリアント用：APIへPOST
     clipboard.js         # standaloneバリアント用：クリップボードへコピー
@@ -42,7 +44,7 @@ manifest.json            # lgtmバリアント用のmanifest（host_permissions:
 1. `src/config.js` の `__BUILD_TARGET__` をターゲット名に置換
 2. `src/background.js` の `__BUILD_TARGET__` をターゲット名に置換
 3. `content.js` を以下の順で連結してバンドル:
-   `config.js` → `inspector.js` → `overlay.js` → `card.js` → `adapter.js` → `content.js`
+   `config.js` → `inspector.js` → `overlay.js` → `styler.js` → `card.js` → `tray.js` → `adapter.js` → `content.js`
 4. lgtmは `manifest.json`、standaloneは `src/manifest.standalone.json` を使用
 
 **ソースは `src/` のみ編集する。`builds/` は生成物なので直接編集しない。**

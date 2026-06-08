@@ -49,5 +49,31 @@ const LGTMAdapter = (() => {
     return { success: true };
   }
 
-  return { getProjects, submit };
+  // Batch — all entries become one task (the page's change-set). The LGTM API takes a
+  // single screenshot, so the first entry's image anchors the task; all diffs live in the body.
+  async function submitBatch(entries) {
+    const project = entries.map(e => e.project).find(Boolean);
+    if (!project) {
+      return { success: false, error: 'プロジェクトを選択してください' };
+    }
+    const first = entries[0];
+    const payload = {
+      title: LGTMTray.formatBatch(entries, { isLGTM: true }),
+      componentPath: first.accuracy !== 'low' ? first.path : '',
+      projectName: project,
+      sourceURL: first.sourceURL || '',
+      screenshotBase64: first.screenshotBase64 || null
+    };
+
+    const response = await sendToBackground({ action: 'submitTask', payload });
+    if (!response) {
+      return { success: false, error: 'LGTM app is not running' };
+    }
+    if (response.error) {
+      return { success: false, error: response.error };
+    }
+    return { success: true };
+  }
+
+  return { getProjects, submit, submitBatch };
 })();
