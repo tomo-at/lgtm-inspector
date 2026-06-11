@@ -2,11 +2,6 @@
 const LGTMAdapter = (() => {
   'use strict';
 
-  // Projects not relevant for standalone
-  async function getProjects() {
-    return null;
-  }
-
   async function submit({ text, componentPath, sourceURL, screenshotBase64 }) {
     const lines = [text, ''];
     // Exclude DOM-hierarchy fallbacks (accuracy: 'low')
@@ -53,7 +48,7 @@ const LGTMAdapter = (() => {
       if (res.path) saved.push(`- [${i + 1}] ${res.path}`);
     }
 
-    let text = LGTMTray.formatBatch(entries, { isLGTM: false });
+    let text = LGTMTray.formatBatch(entries);
     if (saved.length) text += '\n\nScreenshots:\n' + saved.join('\n');
 
     try {
@@ -64,5 +59,5 @@ const LGTMAdapter = (() => {
     }
   }
 
-  return { getProjects, submit, submitBatch };
+  return { submit, submitBatch };
 })();

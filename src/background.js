@@ -1,36 +1,5 @@
-// Service worker — icon state management + programmatic content script injection
+// Service worker — programmatic content script injection + screenshot relay
 'use strict';
-
-const BUILD_TARGET = '__BUILD_TARGET__';
-
-function isLocalhost(url) {
-  if (!url) return false;
-  try {
-    const { hostname } = new URL(url);
-    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
-  } catch { return false; }
-}
-
-function updateAction(tabId, url) {
-  if (BUILD_TARGET === 'lgtm' && !isLocalhost(url)) {
-    chrome.action.disable(tabId);
-  } else {
-    chrome.action.enable(tabId);
-  }
-}
-
-// Track tab URL changes
-chrome.tabs.onActivated.addListener(({ tabId }) => {
-  chrome.tabs.get(tabId, tab => {
-    if (!chrome.runtime.lastError) updateAction(tabId, tab.url);
-  });
-});
-
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.url !== undefined || changeInfo.status === 'complete') {
-    updateAction(tabId, tab.url);
-  }
-});
 
 // Inject content script programmatically (if not already present), then toggle.
 // Uses the activeTab grant from action click / _execute_action shortcut.
@@ -50,38 +19,11 @@ async function toggleInTab(tabId) {
 
 // Action icon click (or _execute_action shortcut) → toggle inspector in active tab
 chrome.action.onClicked.addListener(tab => {
-  if (BUILD_TARGET === 'lgtm' && !isLocalhost(tab.url)) return;
   toggleInTab(tab.id);
 });
 
-const LGTM_API = 'http://127.0.0.1:41234';
-
 // Handle messages from content script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // Proxy: GET /projects — avoids content script CORS / host_permission issues
-  if (message.action === 'getProjects') {
-    fetch(`${LGTM_API}/projects`)
-      .then(r => r.json())
-      .then(data => sendResponse({ projects: data.projects || [] }))
-      .catch(e => sendResponse({ error: e.message }));
-    return true;
-  }
-
-  // Proxy: POST /tasks
-  if (message.action === 'submitTask') {
-    fetch(`${LGTM_API}/tasks`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(message.payload)
-    })
-      .then(r => r.ok
-        ? r.json().then(data => sendResponse({ data }))
-        : r.json().then(e => sendResponse({ error: e.error || `HTTP ${r.status}` }))
-      )
-      .catch(e => sendResponse({ error: e.message }));
-    return true;
-  }
-
   // Screenshot capture relay
   if (message.action === 'captureScreenshot') {
     const windowId = sender.tab ? sender.tab.windowId : chrome.windows.WINDOW_ID_CURRENT;

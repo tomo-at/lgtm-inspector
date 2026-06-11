@@ -49,8 +49,17 @@ const LGTMCard = (() => {
 #__lgtm_card__ .__lgstysw{flex:0 0 24px;width:24px;height:24px;padding:0;border:1px solid #cbd5e1;border-radius:5px;background:none;cursor:pointer}
 #__lgtm_card__ .__lgsty-dirty .__lgstyin{border-color:#3b82f6;background:#eff6ff}
 #__lgtm_card__ .__lgsty-dirty .__lgstylbl{color:#3b82f6;font-weight:600}
-#__lgtm_card__ .__lgtokbtn{flex:0 0 26px;width:26px;height:26px;padding:0;border:1px solid #cbd5e1;border-radius:5px;background:#f8fafc;color:#64748b;font-size:11px;font-family:inherit;cursor:pointer;line-height:1}
+#__lgtm_card__ .__lgtokbtn{flex:0 0 26px;width:26px;height:26px;padding:0;border:1px solid #cbd5e1;border-radius:5px;background:#f8fafc;color:#64748b;font-size:11px;font-family:inherit;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center}
 #__lgtm_card__ .__lgtokbtn:hover{border-color:#3b82f6;color:#3b82f6}
+#__lgtm_card__ .__lgtokbtn.__lgtoksuggest{border-color:#3b82f6;color:#3b82f6;background:#eff6ff}
+#__lgtm_card__ .__lgtokbtn.__lgtokdetach{color:#64748b}
+#__lgtm_card__ .__lgtokbtn.__lgtokdetach:hover{border-color:#ef4444;color:#ef4444;background:#fef2f2}
+#__lgtm_card__ .__lgstychip{flex:1;min-width:0;box-sizing:border-box;display:flex;align-items:center;gap:6px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:5px;padding:3px 7px;cursor:pointer;overflow:hidden}
+#__lgtm_card__ .__lgstychip:hover{border-color:#3b82f6}
+#__lgtm_card__ .__lgstychip svg{flex:0 0 auto;color:#3b82f6}
+#__lgtm_card__ .__lgchipname{flex:1 1 auto;min-width:0;color:#2563eb;font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#__lgtm_card__ .__lgchipval{flex:0 1 auto;min-width:0;max-width:55%;margin-left:auto;padding-left:6px;color:#94a3b8;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#__lgtm_card__ .__lgsty-dirty .__lgstychip{border-color:#3b82f6;background:#dbeafe}
 #__lgtm_tokpop__{position:fixed;z-index:2147483647;min-width:200px;max-width:280px;max-height:240px;overflow-y:auto;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:4px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:12px;box-sizing:border-box}
 #__lgtm_tokpop__ .__lgtokitem{display:flex;align-items:center;gap:7px;padding:5px 7px;border-radius:5px;cursor:pointer}
 #__lgtm_tokpop__ .__lgtokitem:hover{background:#f1f5f9}
@@ -59,7 +68,7 @@ const LGTMCard = (() => {
 #__lgtm_tokpop__ .__lgtokval{flex:0 0 auto;color:#94a3b8;font-size:11px;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #__lgtm_tokpop__ .__lgtoksec{padding:6px 8px;margin-top:2px;border-top:1px solid #eef2f7;color:#94a3b8;font-size:11px;cursor:pointer;user-select:none}
 #__lgtm_tokpop__ .__lgtoksec:hover{color:#3b82f6}
-@media(prefers-color-scheme:dark){#__lgtm_card__{background:#1e293b;border-color:rgba(255,255,255,.12);color:#f1f5f9}#__lgtm_card__ .__lgp{background:rgba(255,255,255,.06);color:#94a3b8}#__lgtm_card__ .__lgi{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}#__lgtm_card__ .__lgddbtn{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}#__lgtm_card__ .__lgddlist{background:#1e293b;border-color:rgba(255,255,255,.18)}#__lgtm_card__ .__lgdditem{color:#f1f5f9}#__lgtm_card__ .__lgdditem:hover{background:#334155}#__lgtm_card__ .__lgba{background:#0f172a;border-color:rgba(255,255,255,.18);color:#cbd5e1}#__lgtm_card__ .__lgnavb{background:#0f172a;border-color:rgba(255,255,255,.18);color:#94a3b8}#__lgtm_card__ .__lgtab{background:#0f172a;border-color:rgba(255,255,255,.18);color:#94a3b8}#__lgtm_card__ .__lgtab-on{background:#3b82f6;border-color:#3b82f6;color:#fff}#__lgtm_card__ .__lgstyin{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}#__lgtm_card__ .__lgsty-dirty .__lgstyin{background:#1e3a5f;border-color:#3b82f6}#__lgtm_card__ .__lgtokbtn{background:#0f172a;border-color:rgba(255,255,255,.18);color:#94a3b8}#__lgtm_card__ .__lgtokbtn:hover{border-color:#3b82f6;color:#3b82f6}#__lgtm_tokpop__{background:#1e293b;border-color:rgba(255,255,255,.18)}#__lgtm_tokpop__ .__lgtokitem:hover{background:#334155}#__lgtm_tokpop__ .__lgtokname{color:#f1f5f9}#__lgtm_tokpop__ .__lgtoksec{border-color:rgba(255,255,255,.08)}}
+@media(prefers-color-scheme:dark){#__lgtm_card__{background:#1e293b;border-color:rgba(255,255,255,.12);color:#f1f5f9}#__lgtm_card__ .__lgp{background:rgba(255,255,255,.06);color:#94a3b8}#__lgtm_card__ .__lgi{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}#__lgtm_card__ .__lgddbtn{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}#__lgtm_card__ .__lgddlist{background:#1e293b;border-color:rgba(255,255,255,.18)}#__lgtm_card__ .__lgdditem{color:#f1f5f9}#__lgtm_card__ .__lgdditem:hover{background:#334155}#__lgtm_card__ .__lgba{background:#0f172a;border-color:rgba(255,255,255,.18);color:#cbd5e1}#__lgtm_card__ .__lgnavb{background:#0f172a;border-color:rgba(255,255,255,.18);color:#94a3b8}#__lgtm_card__ .__lgtab{background:#0f172a;border-color:rgba(255,255,255,.18);color:#94a3b8}#__lgtm_card__ .__lgtab-on{background:#3b82f6;border-color:#3b82f6;color:#fff}#__lgtm_card__ .__lgstyin{background:#0f172a;border-color:rgba(255,255,255,.18);color:#f1f5f9}#__lgtm_card__ .__lgsty-dirty .__lgstyin{background:#1e3a5f;border-color:#3b82f6}#__lgtm_card__ .__lgtokbtn{background:#0f172a;border-color:rgba(255,255,255,.18);color:#94a3b8}#__lgtm_card__ .__lgtokbtn:hover{border-color:#3b82f6;color:#3b82f6}#__lgtm_card__ .__lgtokbtn.__lgtoksuggest{background:rgba(59,130,246,.15);border-color:#3b82f6;color:#93c5fd}#__lgtm_card__ .__lgtokbtn.__lgtokdetach{color:#94a3b8}#__lgtm_card__ .__lgtokbtn.__lgtokdetach:hover{background:rgba(239,68,68,.15);border-color:#ef4444;color:#f87171}#__lgtm_card__ .__lgstychip{background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.4)}#__lgtm_card__ .__lgstychip svg{color:#93c5fd}#__lgtm_card__ .__lgchipname{color:#93c5fd}#__lgtm_card__ .__lgsty-dirty .__lgstychip{background:rgba(59,130,246,.22);border-color:#3b82f6}#__lgtm_tokpop__{background:#1e293b;border-color:rgba(255,255,255,.18)}#__lgtm_tokpop__ .__lgtokitem:hover{background:#334155}#__lgtm_tokpop__ .__lgtokname{color:#f1f5f9}#__lgtm_tokpop__ .__lgtoksec{border-color:rgba(255,255,255,.08)}}
   `;
 
   function injectStyles() {
@@ -78,7 +87,7 @@ const LGTMCard = (() => {
       .replace(/"/g, '&quot;');
   }
 
-  function show(element, componentPath, { onSubmit, onCancel, onNavigate, onAdd, nav = null, projects, anchorRect = null, initialText = '', seedEdits = null, editId = null }) {
+  function show(element, componentPath, { onSubmit, onCancel, onNavigate, onAdd, nav = null, anchorRect = null, initialText = '', seedEdits = null, editId = null }) {
     injectStyles();
     hide();
 
@@ -87,8 +96,7 @@ const LGTMCard = (() => {
     onNavigateCb = onNavigate;
     onAddCb = onAdd;
 
-    const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
-    const submitLabel = isLGTM ? 'Add to LGTM ▶' : 'Copy';
+    const submitLabel = 'Copy';
     // Style editing only applies to a single clicked element (not a dragged region).
     const hasStyleTab = !!element;
 
@@ -98,31 +106,24 @@ const LGTMCard = (() => {
       <div class="__lgp">📍 ${esc(componentPath.path)}${componentPath.source ? `<span class="__lgsrc">↳ ${esc(componentPath.source)}</span>` : ''}</div>
       ${hasStyleTab ? `
         <div class="__lgnav">
-          <button type="button" class="__lgnavb" data-nav="parent" ${nav && !nav.parent ? 'disabled' : ''} title="${isLGTM ? '親要素へ' : 'Parent'}">↑</button>
-          <button type="button" class="__lgnavb" data-nav="child"  ${nav && !nav.child  ? 'disabled' : ''} title="${isLGTM ? '子要素へ' : 'First child'}">↓</button>
-          <button type="button" class="__lgnavb" data-nav="prev"   ${nav && !nav.prev   ? 'disabled' : ''} title="${isLGTM ? '前の兄弟へ' : 'Previous sibling'}">←</button>
-          <button type="button" class="__lgnavb" data-nav="next"   ${nav && !nav.next   ? 'disabled' : ''} title="${isLGTM ? '次の兄弟へ' : 'Next sibling'}">→</button>
+          <button type="button" class="__lgnavb" data-nav="parent" ${nav && !nav.parent ? 'disabled' : ''} title="Parent">↑</button>
+          <button type="button" class="__lgnavb" data-nav="child"  ${nav && !nav.child  ? 'disabled' : ''} title="First child">↓</button>
+          <button type="button" class="__lgnavb" data-nav="prev"   ${nav && !nav.prev   ? 'disabled' : ''} title="Previous sibling">←</button>
+          <button type="button" class="__lgnavb" data-nav="next"   ${nav && !nav.next   ? 'disabled' : ''} title="Next sibling">→</button>
         </div>
         <div class="__lgtabs">
-          <button type="button" class="__lgtab __lgtab-on" data-tab="notes">${isLGTM ? 'メモ' : 'Notes'}</button>
-          <button type="button" class="__lgtab" data-tab="style">${isLGTM ? 'スタイル' : 'Style'}</button>
+          <button type="button" class="__lgtab __lgtab-on" data-tab="notes">Notes</button>
+          <button type="button" class="__lgtab" data-tab="style">Style</button>
         </div>
       ` : ''}
       <div class="__lgpanel" data-panel="notes">
-        <textarea class="__lgi" placeholder="${isLGTM ? '作業指示を入力...' : 'Enter notes...'}"></textarea>
+        <textarea class="__lgi" placeholder="Enter notes..."></textarea>
       </div>
       ${hasStyleTab ? `<div class="__lgpanel" data-panel="style" style="display:none"></div>` : ''}
-      ${isLGTM ? `
-        <div class="__lgdd" id="__lgtm_dd__">
-          <input type="hidden" id="__lgtm_proj__" value="">
-          <button type="button" class="__lgddbtn" id="__lgtm_proj_btn__">プロジェクトを選択...</button>
-          <ul class="__lgddlist" id="__lgtm_proj_list__" style="display:none"></ul>
-        </div>
-      ` : ''}
-      <div class="__lgh">${isLGTM ? '⌘↵ で送信 / Esc でキャンセル' : '⌘↵ to Copy / Esc to Cancel'}</div>
-      <button type="button" class="__lgb __lgba" id="__lgtm_add__" title="${isLGTM ? 'リストにためて、あとでまとめて送信' : 'Stack this and send all together later'}">${editId ? (isLGTM ? '✓ 更新' : '✓ Update') : (isLGTM ? '＋ リストにためる' : '＋ Stack for later')}</button>
+      <div class="__lgh">⌘↵ to Copy / Esc to Cancel</div>
+      <button type="button" class="__lgb __lgba" id="__lgtm_add__" title="Stack this and send all together later">${editId ? '✓ Update' : '＋ Stack for later'}</button>
       <div class="__lga">
-        <button class="__lgb __lgbc" id="__lgtm_cancel__">${isLGTM ? 'キャンセル' : 'Cancel'}</button>
+        <button class="__lgb __lgbc" id="__lgtm_cancel__">Cancel</button>
         <button class="__lgbs __lgb" id="__lgtm_submit__">${esc(submitLabel)}</button>
       </div>
       <div class="__lgst" id="__lgtm_status__"></div>
@@ -130,10 +131,6 @@ const LGTMCard = (() => {
 
     positionCard(element, anchorRect);
     document.documentElement.appendChild(cardEl);
-
-    if (isLGTM && projects && projects.length > 0) {
-      _populateProjects(projects);
-    }
 
     const textarea = cardEl.querySelector('textarea');
     const submitBtn = document.getElementById('__lgtm_submit__');
@@ -157,7 +154,7 @@ const LGTMCard = (() => {
     // Build the live CSS editor and wire tab switching.
     if (hasStyleTab) {
       const stylePanel = cardEl.querySelector('[data-panel="style"]');
-      LGTMStyler.build(stylePanel, element, { isLGTM, seed: seedEdits });
+      LGTMStyler.build(stylePanel, element, { seed: seedEdits });
 
       const tabs = [...cardEl.querySelectorAll('.__lgtab')];
       tabs.forEach(tab => tab.addEventListener('click', () => {
@@ -195,13 +192,7 @@ const LGTMCard = (() => {
       } else if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        // Escape: close dropdown if open, otherwise cancel card
-        const list = document.getElementById('__lgtm_proj_list__');
-        if (list && list.style.display !== 'none') {
-          list.style.display = 'none';
-        } else {
-          _cancel();
-        }
+        _cancel();
       } else {
         e.stopPropagation();
       }
@@ -212,10 +203,7 @@ const LGTMCard = (() => {
     function gather() {
       const text = (textarea.value || '').trim();
       const styleEdits = hasStyleTab ? LGTMStyler.getEdits() : [];
-      const project = isLGTM
-        ? (document.getElementById('__lgtm_proj__') || {}).value || null
-        : null;
-      return { text, styleEdits, project };
+      return { text, styleEdits };
     }
 
     submitBtn.addEventListener('click', () => {
@@ -224,7 +212,7 @@ const LGTMCard = (() => {
       if (!d.text && d.styleEdits.length === 0) { textarea.focus(); return; }
 
       submitBtn.disabled = true;
-      submitBtn.textContent = isLGTM ? '送信中...' : 'Copying...';
+      submitBtn.textContent = 'Copying...';
       onSubmitCb && onSubmitCb(d);
     });
 
@@ -236,56 +224,6 @@ const LGTMCard = (() => {
     });
 
     cancelBtn.addEventListener('click', _cancel);
-  }
-
-  function _populateProjects(projects) {
-    const input = document.getElementById('__lgtm_proj__');
-    const btn   = document.getElementById('__lgtm_proj_btn__');
-    const list  = document.getElementById('__lgtm_proj_list__');
-    if (!input || !btn || !list) return;
-
-    projects.forEach(p => {
-      const name = p.name || p;
-      const li = document.createElement('li');
-      li.className = '__lgdditem';
-      li.textContent = name;
-      li.addEventListener('click', e => {
-        e.stopPropagation();
-        input.value = name;
-        btn.textContent = name;
-        list.style.display = 'none';
-        chrome.storage.local.set({ lastProject: name });
-      });
-      list.appendChild(li);
-    });
-
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      list.style.display = list.style.display === 'none' ? 'block' : 'none';
-    });
-
-    // Close when clicking outside the dropdown
-    document.addEventListener('click', _closeDropdown, true);
-
-    // Restore last-used project
-    chrome.storage.local.get('lastProject', data => {
-      if (!data.lastProject) return;
-      const match = [...list.querySelectorAll('.__lgdditem')]
-        .find(li => li.textContent === data.lastProject);
-      if (match) {
-        input.value = data.lastProject;
-        btn.textContent = data.lastProject;
-      }
-    });
-  }
-
-  function _closeDropdown(e) {
-    const list = document.getElementById('__lgtm_proj_list__');
-    const btn  = document.getElementById('__lgtm_proj_btn__');
-    if (!list || !btn) return;
-    if (!btn.contains(e.target) && !list.contains(e.target)) {
-      list.style.display = 'none';
-    }
   }
 
   // Make the card draggable by `handle`. Keeps the card within the viewport.
@@ -366,7 +304,6 @@ const LGTMCard = (() => {
   }
 
   function hide() {
-    document.removeEventListener('click', _closeDropdown, true);
     if (cardEl) { cardEl.remove(); cardEl = null; }
     onSubmitCb = null;
     onCancelCb = null;

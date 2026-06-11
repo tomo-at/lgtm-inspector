@@ -2,71 +2,48 @@
 
 ## 概要
 
-UI要素をクリックしてアノテーションを付けるChrome拡張機能。2つのビルドバリアントがある。
+UI要素をクリックしてアノテーションを付けるChrome拡張機能。全サイトで動作し、アノテーション（メモ・CSS差分・スクリーンショット）をクリップボードにコピーする。UIは英語。
 
-- **lgtm** — localhostのみ動作。アノテーションをLGTMアプリ（`http://127.0.0.1:41234`）に送信する
-- **standalone** — 全サイトで動作。アノテーションをクリップボードにコピーする
+> 以前は localhost専用でLGTMアプリ（`http://127.0.0.1:41234`）へPOSTする `lgtm` バリアントも併存していたが、standalone版のみに統合した。
 
 ## ビルド
 
 ```bash
-./build.sh                        # 両バリアントをビルド
-BUILD_TARGET=lgtm ./build.sh      # lgtmのみ
-BUILD_TARGET=standalone ./build.sh # standaloneのみ
+./build.sh    # builds/ に出力
 ```
 
-成果物は `builds/lgtm/` と `builds/standalone/` に出力される。
+成果物は `builds/` 直下に出力される。
 
 ## ディレクトリ構成
 
 ```
 src/
-  config.js              # LGTM_CONFIG定義。BUILD_TARGETはビルド時に置換される
-  background.js          # Service Worker。BUILD_TARGETでlocalhost制限を切り替え
+  background.js          # Service Worker。content script の注入 + スクショ取得/保存の中継
   content.js             # メインエントリポイント（ビルド時に最後に連結される）
   core/
     inspector.js         # コンポーネントパス検出ロジック
     overlay.js           # ホバー時のハイライトオーバーレイ
     styler.js            # CSS編集パネル（即時プレビュー・差分抽出・トークン参照・差分整形）
-    card.js              # アノテーションカードUI（メモ/スタイルタブ・DOMナビ・送信/ためる）
-    tray.js              # バッチトレイ（編集をバッジで蓄積し、まとめて1件として送信）
+    card.js              # アノテーションカードUI（メモ/スタイルタブ・DOMナビ・コピー/ためる）
+    tray.js              # バッチトレイ（編集をバッジで蓄積し、まとめてコピー）
   adapters/
-    lgtm.js              # lgtmバリアント用：APIへPOST
-    clipboard.js         # standaloneバリアント用：クリップボードへコピー
-  manifest.standalone.json  # standaloneバリアント用のmanifest（host_permissions: <all_urls>）
-manifest.json            # lgtmバリアント用のmanifest（host_permissions: localhostのみ）
+    clipboard.js         # スクショをディスク保存し、テキスト＋パスをクリップボードへコピー
+  manifest.standalone.json  # manifest（host_permissions: <all_urls>）
 ```
 
 ## ビルドの仕組み
 
 `build.sh` が以下を行う:
 
-1. `src/config.js` の `__BUILD_TARGET__` をターゲット名に置換
-2. `src/background.js` の `__BUILD_TARGET__` をターゲット名に置換
-3. `content.js` を以下の順で連結してバンドル:
-   `config.js` → `inspector.js` → `overlay.js` → `styler.js` → `card.js` → `tray.js` → `adapter.js` → `content.js`
-4. lgtmは `manifest.json`、standaloneは `src/manifest.standalone.json` を使用
+1. `content.js` を以下の順で連結してバンドル:
+   `inspector.js` → `overlay.js` → `styler.js` → `card.js` → `tray.js` → `clipboard.js` → `content.js`
+   （再注入を no-op にするガードIIFEで全体をラップ）
+2. `src/background.js` をコピー
+3. `src/manifest.standalone.json` を `builds/manifest.json` としてコピー
+4. `icons-standalone/` を `builds/icons/` へコピー
+5. `docs/index.html` のバージョン表記を manifest のバージョンに同期
 
 **ソースは `src/` のみ編集する。`builds/` は生成物なので直接編集しない。**
-
-## バリアント分岐のパターン
-
-ソース内でバリアントを分岐するには `LGTM_CONFIG.BUILD_TARGET` を使う:
-
-```js
-const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
-```
-
-- UIテキスト（日本語/英語）の切り替え
-- localhost制限の有効/無効
-- LGTMアダプタの呼び出し（プロジェクト一覧取得等）
-
-## UIテキストの言語
-
-- **lgtm版**: 日本語（作業指示を入力…、キャンセル、送信中… 等）
-- **standalone版**: 英語（Enter notes…、Cancel、Copying… 等）
-
-`card.js` と `content.js` で `isLGTM` を使って分岐している。
 
 ## Git 運用ルール
 
@@ -77,7 +54,7 @@ const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
 
 ```
 chrome://extensions → デベロッパーモード ON → パッケージ化されていない拡張機能を読み込む
-→ builds/lgtm/ または builds/standalone/ を選択
+→ builds/ を選択
 ```
 
-両バリアントを同時にロードしてテスト可能。ショートカットの競合は `chrome://extensions/shortcuts` で解消する。
+ショートカットの競合は `chrome://extensions/shortcuts` で解消する。

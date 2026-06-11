@@ -58,14 +58,11 @@ const LGTMTray = (() => {
     onEditCb = onEdit;
   }
 
-  function isLGTM() { return LGTM_CONFIG.BUILD_TARGET === 'lgtm'; }
-
   function summary(entry) {
-    const lgtm = isLGTM();
     if (entry.text) return entry.text;
     const n = (entry.styleEdits || []).length;
-    if (n) return lgtm ? `${n}件のスタイル変更` : `${n} style change${n > 1 ? 's' : ''}`;
-    return lgtm ? '（メモなし）' : '(no note)';
+    if (n) return `${n} style change${n > 1 ? 's' : ''}`;
+    return '(no note)';
   }
 
   function add(entry) {
@@ -111,7 +108,7 @@ const LGTMTray = (() => {
     const b = rootEl.querySelector('.__lgtrsend');
     if (b) {
       b.disabled = false;
-      b.textContent = isLGTM() ? `まとめて送信 (${entries.length})` : `Copy all (${entries.length})`;
+      b.textContent = `Copy all (${entries.length})`;
     }
   }
 
@@ -129,11 +126,10 @@ const LGTMTray = (() => {
       return;
     }
     ensureRoot();
-    const lgtm = isLGTM();
     const n = entries.length;
 
     if (collapsed) {
-      rootEl.innerHTML = `<div class="__lgtrpill"><span>📋 ${lgtm ? '編集リスト' : 'Edits'}</span><span class="__lgtrn">${n}</span></div>`;
+      rootEl.innerHTML = `<div class="__lgtrpill"><span>📋 Edits</span><span class="__lgtrn">${n}</span></div>`;
       rootEl.querySelector('.__lgtrpill').addEventListener('click', () => { collapsed = false; render(); });
       return;
     }
@@ -141,24 +137,24 @@ const LGTMTray = (() => {
     const items = entries.map((e, i) => `
       <div class="__lgtrit" data-id="${e.id}">
         <span class="__lgtridx">${i + 1}</span>
-        <div class="__lgtrbody" data-id="${e.id}" title="${lgtm ? 'クリックで編集' : 'Click to edit'}">
+        <div class="__lgtrbody" data-id="${e.id}" title="Click to edit">
           <div class="__lgtrpath">📍 ${esc(e.path)}</div>
           <div class="__lgtrsum">${esc(summary(e))}</div>
         </div>
-        <button class="__lgtrx" data-id="${e.id}" title="${lgtm ? '削除' : 'Remove'}">✕</button>
+        <button class="__lgtrx" data-id="${e.id}" title="Remove">✕</button>
       </div>`).join('');
 
     rootEl.innerHTML = `
       <div class="__lgtrpanel">
         <div class="__lgtrhd">
-          <span>${lgtm ? '編集リスト' : 'Edits'} (${n})</span>
-          <button class="__lgtrcollapse" title="${lgtm ? '閉じる' : 'Collapse'}">—</button>
+          <span>Edits (${n})</span>
+          <button class="__lgtrcollapse" title="Collapse">—</button>
         </div>
         <div class="__lgtrlist">${items}</div>
         <div class="__lgtrst"></div>
         <div class="__lgtrft">
-          <button class="__lgtrb __lgtrclear">${lgtm ? 'クリア' : 'Clear'}</button>
-          <button class="__lgtrb __lgtrsend">${lgtm ? `まとめて送信 (${n})` : `Copy all (${n})`}</button>
+          <button class="__lgtrb __lgtrclear">Clear</button>
+          <button class="__lgtrb __lgtrsend">Copy all (${n})</button>
         </div>
       </div>`;
 
@@ -176,22 +172,21 @@ const LGTMTray = (() => {
     sendBtn.addEventListener('click', () => {
       if (!onSendCb || entries.length === 0) return;
       sendBtn.disabled = true;
-      sendBtn.textContent = lgtm ? '送信中...' : 'Copying...';
+      sendBtn.textContent = 'Copying...';
       onSendCb(getEntries());
     });
   }
 
   // Serialize all entries into one combined instruction for Claude Code.
-  // Screenshots are handled by the adapter (saved-to-disk paths for standalone,
-  // attached image for lgtm), not inlined here.
-  function formatBatch(entries, { isLGTM: lgtm } = {}) {
+  // Screenshots are handled by the adapter (saved-to-disk paths), not inlined here.
+  function formatBatch(entries) {
     const url = (entries[0] && entries[0].sourceURL) || window.location.href;
-    const head = lgtm ? `ページの変更 ${entries.length}件` : `Page edits (${entries.length})`;
+    const head = `Page edits (${entries.length})`;
     const blocks = entries.map((e, i) => {
       const lines = [`[${i + 1}] ${e.path}`];
       if (e.source) lines.push(`Source: ${e.source}`);
       if (e.text) lines.push(e.text);
-      const diff = LGTMStyler.formatEdits(e.styleEdits, { isLGTM: lgtm });
+      const diff = LGTMStyler.formatEdits(e.styleEdits);
       if (diff) lines.push(diff);
       return lines.join('\n');
     });

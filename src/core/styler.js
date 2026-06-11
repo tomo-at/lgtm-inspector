@@ -4,10 +4,16 @@
 // changed properties as before→after intent for Claude Code to translate into
 // the real source edit (Tailwind class, CSS rule, etc.).
 //
-// Prefers design tokens over hardcoded values: scans the page's CSS custom
-// properties (--vars defined on :root/html) and lets the user pick one. Picking
-// a token sets the value to `var(--token)`, so the diff carries token intent
-// (e.g. `color: rgb(51,51,51) → var(--text-strong)`) — safer to apply in source.
+// Design tokens (CSS custom properties) are first-class:
+//   • Authoritative link detection — scans inline style + matched author rules
+//     for an explicit `var(--token)` declaration. Those rows render as a token
+//     CHIP (name · resolved value); the right button becomes a DETACH control
+//     that unlinks the token and hardcodes the resolved value.
+//   • Value-match hint — when a row is NOT explicitly linked but its computed
+//     value equals a semantically-relevant token, the `{ }` button is tinted as
+//     a suggestion ("= spacing-md"). The user can opt to link it.
+// The diff carries token intent (e.g. `color: var(--text) → rgb(51,51,51)` on
+// detach, or `12px → var(--spacing-md)` on link) — safer to apply in source.
 const LGTMStyler = (() => {
   'use strict';
 
@@ -18,25 +24,37 @@ const LGTMStyler = (() => {
   //           stay reachable under a collapsible "Other (N)". Empty hints → all kind-matches are
   //           primary (e.g. color rows). Hints never hide tokens, so unusual naming won't empty the list.
   const PROPS = [
-    { key: 'color',            label: 'Text color',    labelJa: '文字色',   type: 'color', tok: ['color'],            hints: [] },
-    { key: 'background-color', label: 'Background',     labelJa: '背景色',   type: 'color', tok: ['color'],            hints: [] },
-    { key: 'font-size',        label: 'Font size',      labelJa: '文字サイズ', type: 'text',  tok: ['length'],           hints: ['font-size', 'fontsize', 'font', 'text'] },
-    { key: 'font-weight',      label: 'Font weight',    labelJa: '太さ',     type: 'text',  tok: ['number'],           hints: ['weight'] },
-    { key: 'line-height',      label: 'Line height',    labelJa: '行間',     type: 'text',  tok: ['length', 'number'], hints: ['line-height', 'lineheight', 'leading', 'line'] },
-    { key: 'letter-spacing',   label: 'Letter spacing', labelJa: '字間',     type: 'text',  tok: ['length'],           hints: ['letter', 'tracking'] },
-    { key: 'padding',          label: 'Padding',        labelJa: '内側余白', type: 'text',  tok: ['length'],           hints: ['space', 'spacing', 'pad', 'inset', 'gap'] },
-    { key: 'margin',           label: 'Margin',         labelJa: '外側余白', type: 'text',  tok: ['length'],           hints: ['space', 'spacing', 'margin', 'gap', 'inset'] },
-    { key: 'width',            label: 'Width',          labelJa: '幅',       type: 'text',  tok: ['length'],           hints: ['size', 'width', 'dimension'] },
-    { key: 'height',           label: 'Height',         labelJa: '高さ',     type: 'text',  tok: ['length'],           hints: ['size', 'height', 'dimension'] },
-    { key: 'border-radius',    label: 'Radius',         labelJa: '角丸',     type: 'text',  tok: ['length'],           hints: ['radius', 'radii', 'rounded', 'corner'] },
-    { key: 'border',           label: 'Border',         labelJa: '枠線',     type: 'text',  tok: ['color', 'length'],  hints: ['border', 'stroke', 'outline'] },
-    { key: 'box-shadow',       label: 'Shadow',         labelJa: '影',       type: 'text',  tok: ['other', 'color'],   hints: ['shadow', 'elevation', 'blur'] },
-    { key: 'opacity',          label: 'Opacity',        labelJa: '不透明度', type: 'text',  tok: ['number'],           hints: ['opacity', 'alpha'] },
+    { key: 'color',            label: 'Text color',    type: 'color', tok: ['color'],            hints: [] },
+    { key: 'background-color', label: 'Background',     type: 'color', tok: ['color'],            hints: [] },
+    { key: 'font-size',        label: 'Font size',      type: 'text',  tok: ['length'],           hints: ['font-size', 'fontsize', 'font', 'text'] },
+    { key: 'font-weight',      label: 'Font weight',    type: 'text',  tok: ['number'],           hints: ['weight'] },
+    { key: 'line-height',      label: 'Line height',    type: 'text',  tok: ['length', 'number'], hints: ['line-height', 'lineheight', 'leading', 'line'] },
+    { key: 'letter-spacing',   label: 'Letter spacing', type: 'text',  tok: ['length'],           hints: ['letter', 'tracking'] },
+    { key: 'padding',          label: 'Padding',        type: 'text',  tok: ['length'],           hints: ['space', 'spacing', 'pad', 'inset', 'gap'] },
+    { key: 'margin',           label: 'Margin',         type: 'text',  tok: ['length'],           hints: ['space', 'spacing', 'margin', 'gap', 'inset'] },
+    { key: 'width',            label: 'Width',          type: 'text',  tok: ['length'],           hints: ['size', 'width', 'dimension'] },
+    { key: 'height',           label: 'Height',         type: 'text',  tok: ['length'],           hints: ['size', 'height', 'dimension'] },
+    { key: 'border-radius',    label: 'Radius',         type: 'text',  tok: ['length'],           hints: ['radius', 'radii', 'rounded', 'corner'] },
+    { key: 'border',           label: 'Border',         type: 'text',  tok: ['color', 'length'],  hints: ['border', 'stroke', 'outline'] },
+    { key: 'box-shadow',       label: 'Shadow',         type: 'text',  tok: ['other', 'color'],   hints: ['shadow', 'elevation', 'blur'] },
+    { key: 'opacity',          label: 'Opacity',        type: 'text',  tok: ['number'],           hints: ['opacity', 'alpha'] },
   ];
 
+  // A token chip shows a small link glyph; the detach button shows a broken-link glyph.
+  const LINK_SVG = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6"/><path d="M9 8H7a4 4 0 0 0 0 8h2"/><path d="M15 8h2a4 4 0 0 1 0 8h-2"/></svg>';
+  const LINKOFF_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 8H7a4 4 0 0 0-.9 7.9"/><path d="M15 16h2a4 4 0 0 0 3-6.6"/><path d="M4 4l16 16"/></svg>';
+
   let targetEl = null;
-  let rows = [];   // { key, label, input, orig, origInline, row }
+  let rows = [];   // array of row APIs (see makeRow)
   let popEl = null; // shared token popover (appended to <html>, outside the card)
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // Token display name: strip the leading "--".
+  function short(name) { return (name || '').replace(/^--/, ''); }
 
   function rgbToHex(v) {
     const m = (v || '').match(/^rgba?\(([^)]+)\)$/i);
@@ -89,6 +107,63 @@ const LGTMStyler = (() => {
     return out;
   }
 
+  // ── Authoritative link detection ────────────────────────────────────────────
+  // Walk inline style + matched author rules once, recording the winning specified
+  // (pre-resolution) value for each property we care about. The value may contain
+  // `var(--token)`, which getComputedStyle would otherwise have resolved away.
+  function collectSpecified(el, keys) {
+    const cand = new Map(); // key -> { value, important, inline, order }
+    let order = 0;
+
+    const beats = (a, b) => {
+      if (a.important !== b.important) return a.important; // !important wins
+      if (a.inline !== b.inline) return a.inline;          // inline beats rules (same importance)
+      return a.order >= b.order;                            // later in cascade wins (specificity ignored — heuristic)
+    };
+    const consider = (styleDecl, key, inline) => {
+      const v = styleDecl.getPropertyValue(key);
+      if (!v) return;
+      const c = { value: v.trim(), important: styleDecl.getPropertyPriority(key) === 'important', inline, order: order++ };
+      const prev = cand.get(key);
+      if (!prev || beats(c, prev)) cand.set(key, c);
+    };
+
+    const walk = (rules) => {
+      for (const rule of Array.from(rules)) {
+        if (rule.type === 1 /* STYLE_RULE */ && rule.selectorText) {
+          let m = false;
+          try { m = el.matches(rule.selectorText); } catch (e) { m = false; } // unsupported selector (e.g. ::before) — skip
+          if (m) keys.forEach(k => consider(rule.style, k, false));
+        } else if (rule.type === 3 /* IMPORT_RULE */ && rule.styleSheet) {
+          try { walk(rule.styleSheet.cssRules); } catch (e) { /* ignore */ }
+        } else if (rule.cssRules) {
+          if (rule.type === 4 /* MEDIA_RULE */) {
+            try { if (!window.matchMedia(rule.media.mediaText).matches) continue; } catch (e) { /* include if unknown */ }
+          } else if (rule.type === 12 /* SUPPORTS_RULE */) {
+            try { if (!CSS.supports(rule.conditionText)) continue; } catch (e) { /* include if unknown */ }
+          }
+          try { walk(rule.cssRules); } catch (e) { /* ignore */ }
+        }
+      }
+    };
+
+    for (const sheet of Array.from(document.styleSheets || [])) {
+      let rules;
+      try { rules = sheet.cssRules; } catch (e) { continue; } // cross-origin — skip
+      if (rules) walk(rules);
+    }
+    if (el.style) keys.forEach(k => consider(el.style, k, true)); // inline wins ties
+    return cand;
+  }
+
+  // Extract the token name from a value that is exactly `var(--x)` or `var(--x, fallback)`.
+  // Composite values (e.g. `1px solid var(--c)`) are intentionally NOT treated as linked —
+  // detach/swap semantics only make sense for a value that is a single token reference.
+  function matchVar(value) {
+    const m = (value || '').match(/^var\(\s*(--[A-Za-z0-9_-]+)\s*(?:,[^()]*)?\)$/);
+    return m ? m[1] : null;
+  }
+
   function tokensFor(kinds, tokens) {
     return tokens.filter(t => kinds.includes(t.kind));
   }
@@ -122,6 +197,29 @@ const LGTMStyler = (() => {
     return { primary, other };
   }
 
+  // Loose value equality for the value-match HINT (non-authoritative).
+  function valuesEqual(a, b, isColor) {
+    const na = (a || '').trim(), nb = (b || '').trim();
+    if (!na || !nb) return false;
+    if (isColor) {
+      if (na.replace(/\s+/g, '').toLowerCase() === nb.replace(/\s+/g, '').toLowerCase()) return true;
+      const ha = rgbToHex(na), hb = rgbToHex(nb);
+      return !!ha && ha === hb;
+    }
+    return na === nb;
+  }
+
+  // Find a hint-relevant token whose resolved value equals the computed value. Used only as a
+  // suggestion when the row is not explicitly linked. Skips multi-part values (e.g. "0px 8px",
+  // "1px solid #000") for non-color props — those don't map to a single token.
+  function findValueToken(prop, computedValue, ranked) {
+    const cv = (computedValue || '').trim();
+    if (!cv) return null;
+    const isColor = prop.type === 'color';
+    if (!isColor && /\s/.test(cv)) return null;
+    return ranked.primary.find(t => valuesEqual(t.value, cv, isColor)) || null;
+  }
+
   function ensurePopover() {
     if (popEl) return popEl;
     popEl = document.createElement('div');
@@ -134,7 +232,8 @@ const LGTMStyler = (() => {
 
   function onDocDownForPopover(e) {
     if (popEl && popEl.style.display !== 'none' &&
-        !popEl.contains(e.target) && !e.target.classList.contains('__lgtokbtn')) {
+        !popEl.contains(e.target) &&
+        !(e.target.closest && (e.target.closest('.__lgtokbtn') || e.target.closest('.__lgstychip')))) {
       hidePopover();
     }
   }
@@ -154,7 +253,7 @@ const LGTMStyler = (() => {
     }
     const nm = document.createElement('span');
     nm.className = '__lgtokname';
-    nm.textContent = t.name;
+    nm.textContent = short(t.name);
     const vl = document.createElement('span');
     vl.className = '__lgtokval';
     vl.textContent = t.value;
@@ -162,22 +261,13 @@ const LGTMStyler = (() => {
     item.appendChild(vl);
     item.addEventListener('click', e => {
       e.stopPropagation();
-      const ref = `var(${t.name})`;
-      ctx.input.value = ref;
-      apply(ctx.key, ref);
-      markChanged(ctx.row, true);
-      if (ctx.swatch && t.kind === 'color') {
-        const h = rgbToHex(t.value);
-        if (h && h.length === 7) ctx.swatch.value = h;
-      }
-      hidePopover();
-      ctx.input.focus();
+      linkTo(ctx.R, t);
     });
     return item;
   }
 
-  function repositionPopover(btn) {
-    const r = btn.getBoundingClientRect();
+  function repositionPopover(anchor) {
+    const r = anchor.getBoundingClientRect();
     const pw = popEl.offsetWidth || 220;
     const ph = popEl.offsetHeight || 200;
     let left = Math.min(r.left, window.innerWidth - pw - 6);
@@ -189,10 +279,9 @@ const LGTMStyler = (() => {
 
   // ranked = { primary, other }. Primary tokens render first; the rest live under a
   // collapsible "Other (N)" so unusual naming never hides them.
-  function openPopover(btn, ctx, ranked) {
+  function openPopover(anchor, ctx, ranked) {
     ensurePopover();
     popEl.innerHTML = '';
-    const lgtm = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
 
     ranked.primary.forEach(t => popEl.appendChild(makeItem(t, ctx)));
 
@@ -200,7 +289,7 @@ const LGTMStyler = (() => {
       if (ranked.primary.length) {
         const toggle = document.createElement('div');
         toggle.className = '__lgtoksec';
-        const label = (open) => (lgtm ? 'その他 ' : 'Other ') + `(${ranked.other.length}) ` + (open ? '▴' : '▾');
+        const label = (open) => 'Other ' + `(${ranked.other.length}) ` + (open ? '▴' : '▾');
         toggle.textContent = label(false);
         let shown = false;
         const appended = [];
@@ -214,7 +303,7 @@ const LGTMStyler = (() => {
           }
           shown = !shown;
           toggle.textContent = label(shown);
-          repositionPopover(btn);
+          repositionPopover(anchor);
         });
         popEl.appendChild(toggle);
       } else {
@@ -224,72 +313,169 @@ const LGTMStyler = (() => {
     }
 
     popEl.style.display = 'block';
-    repositionPopover(btn);
+    repositionPopover(anchor);
+  }
+
+  // ── Row link / detach behaviour ───────────────────────────────────────────────
+  function renderChip(R, valueText) {
+    // Color rows already show the resolved color in the swatch — keep the chip name unclipped.
+    const showVal = R.prop.type !== 'color';
+    R.chip.innerHTML = LINK_SVG +
+      `<span class="__lgchipname">${esc(short(R.linkedToken.name))}</span>` +
+      (showVal ? `<span class="__lgchipval">${esc(valueText || '')}</span>` : '');
+    R.chip.title = `${R.linkedToken.name}: ${valueText || ''} — click to swap token`;
+  }
+
+  function showChip(R, linked) {
+    R.chip.style.display = linked ? '' : 'none';
+    R.input.style.display = linked ? 'none' : '';
+  }
+
+  // Configure the right-hand button: 'detach' (linked) or 'pick' (token picker, optionally tinted as a hint).
+  function setBtnMode(R, mode) {
+    const b = R.tokBtn;
+    if (!b) return;
+    b.classList.remove('__lgtoksuggest', '__lgtokdetach');
+    if (mode === 'detach') {
+      b.innerHTML = LINKOFF_SVG;
+      b.classList.add('__lgtokdetach');
+      b.title = 'Detach token — hardcode the resolved value';
+      b.onclick = e => { e.stopPropagation(); hidePopover(); detachRow(R); };
+    } else {
+      b.textContent = '{ }';
+      if (R.suggestToken) {
+        b.classList.add('__lgtoksuggest');
+        b.title = `Matches ${short(R.suggestToken.name)} (${R.suggestToken.value}) — click to link`;
+      } else {
+        b.title = `Pick a token (${R.tokCount})`;
+      }
+      b.onclick = e => {
+        e.stopPropagation();
+        if (popEl && popEl.style.display !== 'none') { hidePopover(); return; }
+        openPopover(R.tokBtn, { R }, R.ranked);
+      };
+    }
+  }
+
+  // Link the row to a token: chip view + live preview as `var(--token)`.
+  function linkTo(R, token) {
+    R.linkedToken = token;
+    R.suggestToken = null;
+    renderChip(R, token.value || R.resolved);
+    showChip(R, true);
+    setBtnMode(R, 'detach');
+    if (R.swatch && token.kind === 'color') {
+      const h = rgbToHex(token.value);
+      if (h && h.length === 7) R.swatch.value = h;
+    }
+    apply(R.key, `var(${token.name})`);
+    markChanged(R.row, R.dirty());
+    hidePopover();
+  }
+
+  // Detach the token: switch to an editable input holding the resolved (hardcoded) value.
+  function detachRow(R) {
+    const val = (R.linkedToken && R.linkedToken.value) || R.resolved || R.input.value || '';
+    R.linkedToken = null;
+    R.input.value = val;
+    showChip(R, false);
+    setBtnMode(R, 'pick');
+    if (R.swatch) {
+      const h = rgbToHex(val);
+      if (h && h.length === 7) R.swatch.value = h;
+    }
+    apply(R.key, val);
+    markChanged(R.row, R.dirty());
+    R.input.focus();
   }
 
   // ── Panel ─────────────────────────────────────────────────────────────────
   // seed: optional array of prior edits [{prop, to}] to restore + re-preview (edit mode).
-  function build(container, element, { isLGTM, seed = null }) {
+  function build(container, element, { seed = null } = {}) {
     targetEl = element;
     rows = [];
     const cs = getComputedStyle(element);
     const tokens = collectTokens();
+    const tokensByName = new Map(tokens.map(t => [t.name, t]));
+    const specified = collectSpecified(element, PROPS.map(p => p.key));
 
     const wrap = document.createElement('div');
     wrap.className = '__lgsty';
 
     PROPS.forEach(p => {
-      const orig = (cs.getPropertyValue(p.key) || '').trim();
+      const resolved = (cs.getPropertyValue(p.key) || '').trim();
       const origInline = element.style.getPropertyValue(p.key); // restore exactly on revert
+      const spec = specified.get(p.key);
+      const linkName = spec ? matchVar(spec.value) : null;
+      const ranked = rankTokens(p, tokens);
+      const tokCount = ranked.primary.length + ranked.other.length;
+      const suggest = linkName ? null : findValueToken(p, resolved, ranked);
 
       const row = document.createElement('div');
       row.className = '__lgstyrow';
 
       const label = document.createElement('label');
       label.className = '__lgstylbl';
-      label.textContent = isLGTM ? p.labelJa : p.label;
+      label.textContent = p.label;
       label.title = p.key;
 
       const fields = document.createElement('div');
       fields.className = '__lgstyfields';
-
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = '__lgstyin';
-      input.value = orig;
-      input.spellcheck = false;
 
       let swatch = null;
       if (p.type === 'color') {
         swatch = document.createElement('input');
         swatch.type = 'color';
         swatch.className = '__lgstysw';
-        const hex = rgbToHex(orig);
+        const hex = rgbToHex(resolved);
         if (hex && hex.length === 7) swatch.value = hex;
+        fields.appendChild(swatch);
+      }
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = '__lgstyin';
+      input.value = resolved;
+      input.spellcheck = false;
+      fields.appendChild(input);
+
+      const chip = document.createElement('div');
+      chip.className = '__lgstychip';
+      chip.style.display = 'none';
+      fields.appendChild(chip);
+
+      // Right-hand button: present when the prop has tokens, or it's explicitly linked
+      // (a linked token may be scoped and not in the :root-collected list).
+      let tokBtn = null;
+      if (tokCount > 0 || linkName) {
+        tokBtn = document.createElement('button');
+        tokBtn.type = 'button';
+        tokBtn.className = '__lgtokbtn';
+        fields.appendChild(tokBtn);
+      }
+
+      // Baseline for the diff: the explicit `var(--token)` for linked rows (so detach/swap
+      // read naturally), else the computed value.
+      const orig = linkName ? `var(${linkName})` : resolved;
+
+      const R = {
+        key: p.key, label: p.label, prop: p,
+        row, fields, input, chip, swatch, tokBtn,
+        ranked, tokCount, resolved, orig, origInline,
+        linkedToken: null,
+        suggestToken: suggest || null,
+        cur() { return R.linkedToken ? `var(${R.linkedToken.name})` : R.input.value; },
+        dirty() { return R.cur().trim() !== (R.orig || '').trim(); }
+      };
+
+      // Swatch edits (color rows) — only meaningful in input mode.
+      if (swatch) {
         swatch.addEventListener('input', () => {
           input.value = swatch.value;
           apply(p.key, swatch.value);
-          markChanged(row, input.value.trim() !== orig);
+          if (R.suggestToken) { R.suggestToken = null; setBtnMode(R, 'pick'); }
+          markChanged(row, R.dirty());
         });
-        fields.appendChild(swatch);
-      }
-      fields.appendChild(input);
-
-      // Token picker — only when the page actually defines matching tokens.
-      const ranked = rankTokens(p, tokens);
-      const total = ranked.primary.length + ranked.other.length;
-      if (total > 0) {
-        const tokBtn = document.createElement('button');
-        tokBtn.type = 'button';
-        tokBtn.className = '__lgtokbtn';
-        tokBtn.textContent = '{ }';
-        tokBtn.title = isLGTM ? `トークンから選ぶ (${total})` : `Pick a token (${total})`;
-        tokBtn.addEventListener('click', e => {
-          e.stopPropagation();
-          if (popEl && popEl.style.display !== 'none') { hidePopover(); return; }
-          openPopover(tokBtn, { input, swatch, key: p.key, row }, ranked);
-        });
-        fields.appendChild(tokBtn);
       }
 
       input.addEventListener('input', () => {
@@ -298,16 +484,33 @@ const LGTMStyler = (() => {
           const h = rgbToHex(input.value);
           if (h && h.length === 7) swatch.value = h;
         }
-        markChanged(row, input.value.trim() !== orig);
+        if (R.suggestToken && input.value.trim() !== R.resolved) { R.suggestToken = null; setBtnMode(R, 'pick'); }
+        markChanged(row, R.dirty());
       });
       input.addEventListener('keydown', e => { if (e.key !== 'Escape') e.stopPropagation(); });
       input.addEventListener('keyup', e => e.stopPropagation());
 
+      // Chip click → open the picker to swap tokens.
+      chip.addEventListener('click', e => {
+        e.stopPropagation();
+        if (popEl && popEl.style.display !== 'none') { hidePopover(); return; }
+        openPopover(chip, { R }, R.ranked);
+      });
+
       row.appendChild(label);
       row.appendChild(fields);
       wrap.appendChild(row);
+      rows.push(R);
 
-      rows.push({ key: p.key, label: isLGTM ? p.labelJa : p.label, input, swatch, orig, origInline, row });
+      // Initial state.
+      if (linkName) {
+        R.linkedToken = tokensByName.get(linkName) || { name: linkName, value: resolved, kind: classify(resolved) };
+        renderChip(R, resolved);
+        showChip(R, true);
+        setBtnMode(R, 'detach');
+      } else {
+        setBtnMode(R, 'pick'); // no-op if tokBtn is null
+      }
     });
 
     container.appendChild(wrap);
@@ -315,12 +518,19 @@ const LGTMStyler = (() => {
     // Edit mode — restore prior edits and re-apply the live preview.
     if (seed && seed.length) {
       seed.forEach(s => {
-        const r = rows.find(x => x.key === s.prop);
-        if (!r) return;
-        r.input.value = s.to;
-        apply(s.prop, s.to);
-        markChanged(r.row, r.input.value.trim() !== (r.orig || '').trim());
-        if (r.swatch) { const h = rgbToHex(s.to); if (h && h.length === 7) r.swatch.value = h; }
+        const R = rows.find(x => x.key === s.prop);
+        if (!R) return;
+        const mv = matchVar(s.to);
+        if (mv) {
+          const tk = tokensByName.get(mv) || { name: mv, value: R.resolved, kind: classify(R.resolved) };
+          linkTo(R, tk);
+        } else {
+          if (R.linkedToken) { R.linkedToken = null; showChip(R, false); setBtnMode(R, 'pick'); }
+          R.input.value = s.to;
+          apply(s.prop, s.to);
+          if (R.swatch) { const h = rgbToHex(s.to); if (h && h.length === 7) R.swatch.value = h; }
+          markChanged(R.row, R.dirty());
+        }
       });
     }
   }
@@ -338,21 +548,21 @@ const LGTMStyler = (() => {
   // Returns [{ prop, label, from, to }] for fields the user changed.
   function getEdits() {
     return rows
-      .filter(r => r.input.value.trim() !== (r.orig || '').trim())
-      .map(r => ({
-        prop: r.key,
-        label: r.label,
-        from: r.orig || '(none)',
-        to: r.input.value.trim() || '(none)'
+      .filter(R => R.dirty())
+      .map(R => ({
+        prop: R.key,
+        label: R.label,
+        from: (R.orig || '').trim() || '(none)',
+        to: R.cur().trim() || '(none)'
       }));
   }
 
   // Restore the element's original inline styles (undo live preview).
   function revert() {
     if (!targetEl) return;
-    rows.forEach(r => {
-      if (r.origInline) targetEl.style.setProperty(r.key, r.origInline);
-      else targetEl.style.removeProperty(r.key);
+    rows.forEach(R => {
+      if (R.origInline) targetEl.style.setProperty(R.key, R.origInline);
+      else targetEl.style.removeProperty(R.key);
     });
   }
 
@@ -368,9 +578,9 @@ const LGTMStyler = (() => {
   }
 
   // Shared formatter — serializes edits as before→after intent for Claude Code.
-  function formatEdits(edits, { isLGTM } = {}) {
+  function formatEdits(edits) {
     if (!edits || !edits.length) return '';
-    const header = isLGTM ? 'CSS変更（プレビュー反映済み）:' : 'CSS changes (previewed):';
+    const header = 'CSS changes (previewed):';
     const lines = edits.map(e => `- ${e.prop}: ${e.from} → ${e.to}`);
     return header + '\n' + lines.join('\n');
   }

@@ -125,8 +125,7 @@
     LGTMOverlay.hide(); // hide component highlight so only drag rect remains
     dragLocked = true;
 
-    const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
-    const regionPath = { path: isLGTM ? '選択範囲' : 'Selected area', accuracy: 'high' };
+    const regionPath = { path: 'Selected area', accuracy: 'high' };
 
     pendingScreenshot = null;
     captureRegion(rect)
@@ -223,23 +222,7 @@
   }
 
   // ── Card ────────────────────────────────────────────────────────────────────
-  // Fetch LGTM projects (live, falling back to the cached list). null for standalone.
-  async function fetchProjects() {
-    if (LGTM_CONFIG.BUILD_TARGET !== 'lgtm') return null;
-    let projects = await LGTMAdapter.getProjects();
-    if (projects) {
-      chrome.storage.local.set({ cachedProjects: projects });
-    } else {
-      await new Promise(resolve => {
-        chrome.storage.local.get('cachedProjects', d => { projects = d.cachedProjects || []; resolve(); });
-      });
-    }
-    return projects;
-  }
-
   async function openCard(element, componentPath, editCtx = {}) {
-    const projects = await fetchProjects();
-
     const nav = {
       parent: isNavigable(element.parentElement, 'parent'),
       child:  isNavigable(element.firstElementChild, 'child'),
@@ -250,7 +233,6 @@
     const editId = editCtx.editId || null;
 
     LGTMCard.show(element, componentPath, {
-      projects,
       nav,
       initialText: editCtx.initialText || '',
       seedEdits: editCtx.seedEdits || null,
@@ -280,7 +262,7 @@
 
   // Add the current element's edit to the batch tray (instead of sending now).
   // With editId, update the existing entry in place instead of adding a new one.
-  async function handleAdd({ text, project, styleEdits, element, componentPath, editId }) {
+  async function handleAdd({ text, styleEdits, element, componentPath, editId }) {
     const edits = styleEdits || [];
     let screenshotBase64;
     if (edits.length) {
@@ -299,7 +281,6 @@
       text,
       styleEdits: edits,
       screenshotBase64,
-      project,
       sourceURL: window.location.href
     };
     if (editId) LGTMTray.replace(editId, entry);
@@ -308,11 +289,8 @@
   }
 
   async function openDragCard(rect, componentPath) {
-    const projects = await fetchProjects();
-
     LGTMCard.show(null, componentPath, {
       anchorRect: rect,
-      projects,
       onSubmit: data => handleDragSubmit({ ...data, rect, componentPath }),
       onAdd: data => handleDragAdd({ ...data, rect, componentPath }),
       onCancel: () => { LGTMOverlay.hideDragRect(); dragLocked = false; }
@@ -320,7 +298,7 @@
   }
 
   // Add a dragged-region annotation to the batch tray.
-  async function handleDragAdd({ text, project, rect, componentPath }) {
+  async function handleDragAdd({ text, rect, componentPath }) {
     let screenshotBase64 = pendingScreenshot;
     pendingScreenshot = null;
     if (!screenshotBase64) {
@@ -332,7 +310,6 @@
       text,
       styleEdits: [],
       screenshotBase64,
-      project,
       sourceURL: window.location.href
     });
     LGTMCard.hide();
@@ -362,14 +339,11 @@
 
   // Fallback editor (element gone): note-only card with the CSS diff folded into editable text.
   async function openFallbackEdit(entry) {
-    const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
-    const folded = [entry.text, LGTMStyler.formatEdits(entry.styleEdits, { isLGTM })].filter(Boolean).join('\n\n');
+    const folded = [entry.text, LGTMStyler.formatEdits(entry.styleEdits)].filter(Boolean).join('\n\n');
     const componentPath = { path: entry.path, accuracy: entry.accuracy };
-    const projects = await fetchProjects();
 
     dragLocked = true; // reuse the "card open, ignore new selections" guard
     LGTMCard.show(null, componentPath, {
-      projects,
       initialText: folded,
       editId: entry.id,
       onAdd: data => {
@@ -380,7 +354,6 @@
           text: data.text,
           styleEdits: [], // CSS was folded into the note text
           screenshotBase64: entry.screenshotBase64,
-          project: data.project || entry.project,
           sourceURL: entry.sourceURL
         });
         LGTMCard.hide();
@@ -391,29 +364,26 @@
     });
   }
 
-  async function handleFallbackSubmit({ text, project, entry }) {
-    const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
-    const submitLabel = isLGTM ? 'Add to LGTM ▶' : 'Copy';
+  async function handleFallbackSubmit({ text, entry }) {
+    const submitLabel = 'Copy';
     const result = await LGTMAdapter.submit({
       text,
       componentPath: { path: entry.path, accuracy: entry.accuracy },
       sourceURL: entry.sourceURL || window.location.href,
-      project: project || entry.project,
       screenshotBase64: entry.screenshotBase64
     });
     if (result.success) {
       LGTMTray.remove(entry.id);
-      LGTMCard.showStatus(isLGTM ? '✓ Added to LGTM' : '✓ Copied to clipboard', 'success');
+      LGTMCard.showStatus('✓ Copied to clipboard', 'success');
       setTimeout(() => { LGTMCard.hide(); dragLocked = false; }, 1400);
     } else {
-      LGTMCard.showStatus('⚠ ' + (result.error || (isLGTM ? 'エラーが発生しました' : 'An error occurred')), 'error');
+      LGTMCard.showStatus('⚠ ' + (result.error || 'An error occurred'), 'error');
       LGTMCard.resetSubmit(submitLabel);
     }
   }
 
-  async function handleDragSubmit({ text, project, rect, componentPath }) {
-    const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
-    const submitLabel = isLGTM ? 'Add to LGTM ▶' : 'Copy';
+  async function handleDragSubmit({ text, rect, componentPath }) {
+    const submitLabel = 'Copy';
 
     let screenshotBase64 = pendingScreenshot;
     pendingScreenshot = null;
@@ -429,31 +399,29 @@
       text,
       componentPath,
       sourceURL: window.location.href,
-      project,
       screenshotBase64
     });
 
     if (result.success) {
-      LGTMCard.showStatus(isLGTM ? '✓ Added to LGTM' : '✓ Copied to clipboard', 'success');
+      LGTMCard.showStatus('✓ Copied to clipboard', 'success');
       setTimeout(() => { LGTMCard.hide(); LGTMOverlay.hideDragRect(); deactivate(); }, 1400);
     } else {
-      LGTMCard.showStatus('⚠ ' + (result.error || (isLGTM ? 'エラーが発生しました' : 'An error occurred')), 'error');
+      LGTMCard.showStatus('⚠ ' + (result.error || 'An error occurred'), 'error');
       LGTMCard.resetSubmit(submitLabel);
     }
   }
 
-  async function handleSubmit({ text, project, styleEdits, element, componentPath, editId }) {
-    const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
-    const submitLabel = isLGTM ? 'Add to LGTM ▶' : 'Copy';
+  async function handleSubmit({ text, styleEdits, element, componentPath, editId }) {
+    const submitLabel = 'Copy';
 
     const edits = styleEdits || [];
     const hasEdits = edits.length > 0;
 
     // Merge the CSS diff into the note text as before→after intent.
-    const styleText = LGTMStyler.formatEdits(edits, { isLGTM });
+    const styleText = LGTMStyler.formatEdits(edits);
     let finalText = [text, styleText].filter(Boolean).join('\n\n');
     if (!text && hasEdits) {
-      const title = isLGTM ? `スタイル調整: ${componentPath.path}` : `Style tweak: ${componentPath.path}`;
+      const title = `Style tweak: ${componentPath.path}`;
       finalText = title + '\n\n' + styleText;
     }
 
@@ -483,16 +451,15 @@
       text: finalText,
       componentPath,
       sourceURL: window.location.href,
-      project,
       screenshotBase64
     });
 
     if (result.success) {
       if (editId) LGTMTray.remove(editId); // this entry was just sent — drop it from the tray
-      LGTMCard.showStatus(isLGTM ? '✓ Added to LGTM' : '✓ Copied to clipboard', 'success');
+      LGTMCard.showStatus('✓ Copied to clipboard', 'success');
       setTimeout(() => { LGTMCard.hide(); deactivate(); }, 1400);
     } else {
-      LGTMCard.showStatus('⚠ ' + (result.error || (isLGTM ? 'エラーが発生しました' : 'An error occurred')), 'error');
+      LGTMCard.showStatus('⚠ ' + (result.error || 'An error occurred'), 'error');
       LGTMCard.resetSubmit(submitLabel);
     }
   }
@@ -616,14 +583,13 @@
   // ── Batch send (from the tray) ───────────────────────────────────────────────
   async function handleBatchSend(entries) {
     if (!entries || entries.length === 0) return;
-    const isLGTM = LGTM_CONFIG.BUILD_TARGET === 'lgtm';
     const result = await LGTMAdapter.submitBatch(entries);
     if (result.success) {
-      LGTMTray.showStatus(isLGTM ? '✓ Added to LGTM' : '✓ Copied to clipboard', 'success');
+      LGTMTray.showStatus('✓ Copied to clipboard', 'success');
       setTimeout(() => LGTMTray.clear(), 1200);
     } else {
       LGTMTray.resetSend();
-      LGTMTray.showStatus('⚠ ' + (result.error || (isLGTM ? 'エラーが発生しました' : 'An error occurred')), 'error');
+      LGTMTray.showStatus('⚠ ' + (result.error || 'An error occurred'), 'error');
     }
   }
 
