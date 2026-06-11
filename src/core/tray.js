@@ -189,6 +189,7 @@ const LGTMTray = (() => {
     const head = lgtm ? `ページの変更 ${entries.length}件` : `Page edits (${entries.length})`;
     const blocks = entries.map((e, i) => {
       const lines = [`[${i + 1}] ${e.path}`];
+      if (e.source) lines.push(`Source: ${e.source}`);
       if (e.text) lines.push(e.text);
       const diff = LGTMStyler.formatEdits(e.styleEdits, { isLGTM: lgtm });
       if (diff) lines.push(diff);

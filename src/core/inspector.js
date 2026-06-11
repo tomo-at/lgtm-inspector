@@ -171,5 +171,77 @@ const LGTMInspector = (() => {
     );
   }
 
-  return { getComponentPath };
+  // --- Source location (dev builds only) ---
+  // Maps an element back to where it's written in source — the one thing component
+  // paths can't give. React dev builds (with @babel/plugin-transform-react-jsx-source,
+  // default in CRA/Next/Vite dev) expose fiber._debugSource = { fileName, lineNumber }.
+  // Vue dev SFCs expose component type.__file. Production builds strip both → null.
+  function cleanFile(file) {
+    let f = String(file)
+      .replace(/^webpack-internal:\/\/\/(\.\/)?/, '')
+      .replace(/^(?:file|webpack):\/\//, '')
+      .replace(/\?.*$/, '');
+    // Trim to a recognizable repo-relative tail when present, else keep as-is.
+    const m = f.match(/(?:^|\/)((?:src|app|components|pages|lib|ui|packages)\/.+)$/);
+    return m ? m[1] : f;
+  }
+
+  function getSourceLocation(element) {
+    if (!element || typeof element !== 'object') return null;
+
+    // 0. Dev-inspector data attributes (react-dev-inspector, locatorjs, custom babel plugins).
+    //    Works on ANY framework/version when the team opts in — and is the only reliable path
+    //    on React 19 / Next App Router, which no longer expose fiber._debugSource.
+    if (typeof element.closest === 'function') {
+      const tagged = element.closest(
+        '[data-inspector-relative-path],[data-source-file],[data-sourcefile],[data-source]'
+      );
+      if (tagged) {
+        const path = tagged.getAttribute('data-inspector-relative-path') ||
+                     tagged.getAttribute('data-source-file') ||
+                     tagged.getAttribute('data-sourcefile') ||
+                     tagged.getAttribute('data-source');
+        const line = tagged.getAttribute('data-inspector-line') ||
+                     tagged.getAttribute('data-source-line');
+        if (path) return cleanFile(path) + (line ? ':' + line : '');
+      }
+    }
+
+    // 1. React ≤18 dev: walk the fiber tree for the nearest _debugSource.
+    const fiberKey = Object.keys(element).find(
+      k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance')
+    );
+    if (fiberKey) {
+      let fiber = element[fiberKey];
+      let depth = 0;
+      while (fiber && depth < 30) {
+        const src = fiber._debugSource;
+        if (src && src.fileName) {
+          return cleanFile(src.fileName) + (src.lineNumber ? ':' + src.lineNumber : '');
+        }
+        fiber = fiber.return;
+        depth++;
+      }
+    }
+
+    // Vue: walk component instances for type.__file.
+    const vueKey = Object.keys(element).find(
+      k => k === '__vueParentComponent' || k === '__vue__'
+    );
+    if (vueKey) {
+      let vm = element[vueKey];
+      let depth = 0;
+      while (vm && depth < 10) {
+        const file = (vm.type && vm.type.__file) ||
+                     (vm.$options && (vm.$options.__file || vm.$options.__source));
+        if (file) return cleanFile(file);
+        vm = vm.parent || vm.$parent;
+        depth++;
+      }
+    }
+
+    return null;
+  }
+
+  return { getComponentPath, getSourceLocation };
 })();

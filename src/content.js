@@ -159,6 +159,8 @@
   function selectElement(element, editCtx) {
     selectedEl = element;
     selectedPath = LGTMInspector.getComponentPath(element);
+    // Source location is only worth computing on selection (not on every hover).
+    selectedPath.source = LGTMInspector.getSourceLocation(element) || null;
     LGTMOverlay.lock(element);
 
     // Capture screenshot NOW — before the card UI appears in the viewport.
@@ -293,6 +295,7 @@
       element, // kept for live re-editing later (may detach on SPA re-render)
       path: componentPath.path,
       accuracy: componentPath.accuracy,
+      source: componentPath.source || null,
       text,
       styleEdits: edits,
       screenshotBase64,

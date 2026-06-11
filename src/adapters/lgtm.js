@@ -31,9 +31,10 @@ const LGTMAdapter = (() => {
     }
 
     const payload = {
-      title: text,
+      title: componentPath.source ? `${text}\n\nSource: ${componentPath.source}` : text,
       // Exclude DOM-hierarchy fallbacks (accuracy: 'low') — they're not useful for code navigation
       componentPath: componentPath.accuracy !== 'low' ? componentPath.path : '',
+      sourcePath: componentPath.source || '',
       projectName: project,
       sourceURL: sourceURL || '',
       screenshotBase64: screenshotBase64 || null
@@ -60,6 +61,7 @@ const LGTMAdapter = (() => {
     const payload = {
       title: LGTMTray.formatBatch(entries, { isLGTM: true }),
       componentPath: first.accuracy !== 'low' ? first.path : '',
+      sourcePath: first.source || '',
       projectName: project,
       sourceURL: first.sourceURL || '',
       screenshotBase64: first.screenshotBase64 || null

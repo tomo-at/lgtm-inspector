@@ -13,6 +13,9 @@ const LGTMAdapter = (() => {
     if (componentPath.accuracy !== 'low') {
       lines.push(`Component: ${componentPath.path}`);
     }
+    if (componentPath.source) {
+      lines.push(`Source: ${componentPath.source}`);
+    }
     lines.push(`URL: ${sourceURL || window.location.href}`);
 
     // Save screenshot to ~/Downloads/lgtm-inspector/ and append path to text
