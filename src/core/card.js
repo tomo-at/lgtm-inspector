@@ -44,7 +44,7 @@ const LGTMCard = (() => {
 #__lgtm_card__ .__lgstyrow{display:flex;align-items:center;gap:6px;margin-bottom:5px}
 #__lgtm_card__ .__lgstylbl{flex:0 0 72px;font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:default}
 #__lgtm_card__ .__lgstyfields{flex:1;display:flex;align-items:center;gap:5px;min-width:0}
-#__lgtm_card__ .__lgstyin{flex:1;min-width:0;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:5px;padding:4px 7px;font-size:12px;font-family:inherit;outline:none;color:#1a1a1a;background:#fff}
+#__lgtm_card__ .__lgstyin{flex:1;min-width:0;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:5px;padding:4px 7px;font-size:12px;line-height:1.4;height:auto;min-height:0;font-family:inherit;outline:none;color:#1a1a1a;background:#fff}
 #__lgtm_card__ .__lgstyin:focus{border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.12)}
 #__lgtm_card__ .__lgstysw{flex:0 0 24px;width:24px;height:24px;padding:0;border:1px solid #cbd5e1;border-radius:5px;background:none;cursor:pointer}
 #__lgtm_card__ .__lgsty-dirty .__lgstyin{border-color:#3b82f6;background:#eff6ff}
